@@ -1,7 +1,7 @@
 {
   "name": "@zivue/zuuid",
   "version": "0.1.0",
-  "description": "Unified identifiers and a unified data structure for typed content.",
+  "description": "TypeScript helpers for Zuuid provider IDs, entity records, and record keys.",
   "type": "module",
   "license": "MIT",
   "author": "Zivue",
@@ -14,11 +14,11 @@
   },
   "homepage": "https://github.com/zivue/zuuid#readme",
   "keywords": [
-    "id",
-    "data-structure",
-    "content-addressing",
-    "hash",
-    "schema"
+    "zuuid",
+    "uuid-v5",
+    "metadata",
+    "entity-record",
+    "zivue"
   ],
   "files": [
     "dist",

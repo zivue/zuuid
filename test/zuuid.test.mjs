@@ -1,101 +1,58 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  createMediaDescriptor,
-  createZuuid,
-  createZuuidRecord,
-  extensionFromMediaType,
-  formatStorageKey,
-  normalizeMediaType,
-  parseZuuid
+  categoryFor,
+  createEntityRecord,
+  entityRecordKey,
+  kindForCategory,
+  providerNamespace,
+  providerZuuid
 } from "../dist/index.js";
 
-test("createZuuid returns a deterministic content-derived ID", async () => {
-  const first = await createZuuid({ bytes: "hello", mediaType: "text/plain; charset=utf-8" });
-  const second = await createZuuid({ bytes: new TextEncoder().encode("hello"), mediaType: "text/plain" });
-
-  assert.equal(first, second);
+test("providerZuuid matches the Rust provider-stable UUID v5 generation", async () => {
   assert.equal(
-    first,
-    "zuuid:v1:text/plain:sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+    await providerZuuid({ provider: "tmdb", category: "movie", externalId: "550" }),
+    "1706d641-d381-5618-9425-d8cd8b35f898"
   );
 });
 
-test("parseZuuid validates and parses package IDs", () => {
-  assert.deepEqual(
-    parseZuuid("zuuid:v1:image/jpeg:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-    {
-      version: 1,
-      mediaType: "image/jpeg",
-      algorithm: "sha256",
-      digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    }
-  );
-
-  assert.throws(() => parseZuuid("zuuid:v2:image/jpeg:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
-});
-
-test("formatStorageKey creates stable sharded keys", () => {
-  const key = formatStorageKey({
-    id: "zuuid:v1:image/jpeg:sha256:abcdefaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    extension: "jpg",
-    prefix: "/media/uploads/",
-    shardDepth: 3,
-    shardSize: 2
-  });
-
+test("providerZuuid normalizes category but preserves external id text", async () => {
   assert.equal(
-    key,
-    "media/uploads/sha256/ab/cd/ef/zuuid-v1-image-jpeg-sha256-abcdefaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg"
+    await providerZuuid({ provider: "tmdb", category: " Movie ", externalId: "550" }),
+    await providerZuuid({ provider: "tmdb", category: "movie", externalId: "550" })
   );
 });
 
-test("createMediaDescriptor combines ID metadata and storage key", async () => {
-  const descriptor = await createMediaDescriptor({
-    bytes: "image-bytes",
-    mediaType: "image/png",
-    prefix: "media"
-  });
-
-  assert.equal(descriptor.mediaType, "image/png");
-  assert.equal(descriptor.extension, "png");
-  assert.equal(descriptor.byteLength, 11);
-  assert.match(descriptor.storageKey, /^media\/sha256\/[a-f0-9]{2}\/[a-f0-9]{2}\/zuuid-v1-image-png-sha256-[a-f0-9]{64}\.png$/);
+test("providerNamespace exposes known Zuuid namespaces", () => {
+  assert.equal(providerNamespace("tmdb"), "6ba7b810-9dad-11d1-80b4-00c04fd430c8");
+  assert.equal(providerNamespace("unknown"), undefined);
 });
 
-test("filename extension overrides media type extension", async () => {
-  const descriptor = await createMediaDescriptor({
-    bytes: "doc",
-    mediaType: "application/octet-stream",
-    filename: "archive.tar.gz"
+test("createEntityRecord returns the canonical Zuuid entity record shell", () => {
+  const record = createEntityRecord({
+    zuuid: "1706d641-d381-5618-9425-d8cd8b35f898",
+    category: "movie",
+    primaryTitle: "Fight Club"
   });
 
-  assert.equal(descriptor.extension, "gz");
+  assert.equal(record.zuuid, "1706d641-d381-5618-9425-d8cd8b35f898");
+  assert.deepEqual(record.public.category, { kind: "watch", value: "movie" });
+  assert.equal(record.public.primaryTitle, "Fight Club");
+  assert.deepEqual(record.public.externalIds, []);
+  assert.deepEqual(record.internal.sourcePayloads, []);
+  assert.deepEqual(record.record, { schemaVersion: 1, version: 1 });
 });
 
-test("normalizes media types and maps common extensions", () => {
-  assert.equal(normalizeMediaType("IMAGE/JPEG; charset=binary"), "image/jpeg");
-  assert.equal(extensionFromMediaType("video/quicktime"), "mov");
+test("entityRecordKey matches the sharded object key used by zuuid-store", () => {
+  assert.equal(
+    entityRecordKey("1706d641-d381-5618-9425-d8cd8b35f898"),
+    "entities/17/06/1706d641-d381-5618-9425-d8cd8b35f898.json"
+  );
 });
 
-test("createZuuidRecord returns a unified typed data structure", async () => {
-  const first = await createZuuidRecord({
-    type: "application/vnd.zivue.reaction+json",
-    data: { rating: 5, title: "Heat", tags: ["movie", "favorite"] },
-    meta: { source: "import" },
-    links: { subject: "zuuid:v1:text/plain:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
-  });
-  const second = await createZuuidRecord({
-    type: "application/vnd.zivue.reaction+json",
-    data: { tags: ["movie", "favorite"], title: "Heat", rating: 5 }
-  });
-
-  assert.equal(first.id, second.id);
-  assert.equal(first.type, "application/vnd.zivue.reaction+json");
-  assert.equal(first.mediaType, "application/vnd.zivue.reaction+json");
-  assert.deepEqual(first.data, { rating: 5, title: "Heat", tags: ["movie", "favorite"] });
-  assert.deepEqual(first.meta, { source: "import" });
-  assert.deepEqual(first.links, {
-    subject: "zuuid:v1:text/plain:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-  });
+test("categoryFor and kindForCategory match core category grouping", () => {
+  assert.deepEqual(categoryFor(" Movie "), { kind: "watch", value: "movie" });
+  assert.equal(kindForCategory("book"), "read");
+  assert.equal(kindForCategory("restaurant"), "visit");
+  assert.equal(kindForCategory("collection"), "collection");
 });

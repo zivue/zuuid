@@ -1,10 +1,8 @@
 # @zivue/zuuid
 
-Unified IDs and a unified data structure for typed content.
+TypeScript helpers for the Zuuid core model.
 
-`@zivue/zuuid` is the small core for representing things consistently. It creates deterministic IDs from content, parses those IDs, and wraps JSON-compatible data in one predictable record shape.
-
-The package has no runtime dependencies and works in modern Node.js and browser runtimes with Web Crypto support.
+Zuuid is the metadata, search, and indexing substrate for Zivue/Stareto. The core model uses deterministic provider-stable UUIDs, canonical entity records, and sharded entity record keys.
 
 ## Install
 
@@ -12,88 +10,94 @@ The package has no runtime dependencies and works in modern Node.js and browser 
 npm install @zivue/zuuid
 ```
 
-## Usage
+## Generate A ZUUID
 
-```ts
-import { createZuuidRecord } from "@zivue/zuuid";
-
-const record = await createZuuidRecord({
-  type: "application/vnd.zivue.reaction+json",
-  data: {
-    title: "Heat",
-    rating: 5,
-    tags: ["movie", "favorite"]
-  },
-  meta: {
-    source: "import"
-  }
-});
-
-console.log(record.id);
-// zuuid:v1:application/vnd.zivue.reaction+json:sha256:<digest>
-
-console.log(record.data.title);
-// Heat
-```
-
-## ID Format
-
-A ZUUID is a deterministic, content-derived identifier:
+Zuuid generation is UUID v5:
 
 ```txt
-zuuid:v1:<normalized-type>:sha256:<hex-digest>
+uuid_v5(provider_namespace, "<normalized-category>:<external_id>")
 ```
 
-The type is normalized to lowercase and may be a media type, vendor type, or other MIME-compatible content type.
+```ts
+import { providerZuuid } from "@zivue/zuuid";
 
-## Unified Record
+const zuuid = await providerZuuid({
+  provider: "tmdb",
+  category: "movie",
+  externalId: "550"
+});
 
-`createZuuidRecord(input)` returns one stable structure:
+console.log(zuuid);
+// 1706d641-d381-5618-9425-d8cd8b35f898
+```
+
+`category` is trimmed and lowercased. `externalId` is trimmed but otherwise preserved.
+
+## Entity Record
 
 ```ts
-type ZuuidRecord<TData> = {
-  id: string;
-  version: 1;
-  type: string;
-  mediaType: string;
-  algorithm: "sha256";
-  digest: string;
-  data: TData;
-  meta: Record<string, JsonValue>;
-  links: Record<string, string | string[]>;
+import { createEntityRecord } from "@zivue/zuuid";
+
+const record = createEntityRecord({
+  zuuid: "1706d641-d381-5618-9425-d8cd8b35f898",
+  category: "movie",
+  primaryTitle: "Fight Club"
+});
+```
+
+The record shape follows `ZuuidEntityRecord` from `zuuid-core`:
+
+```ts
+type ZuuidEntityRecord = {
+  zuuid: string;
+  public: EntityPublicData;
+  internal: EntityInternalData;
+  record: RecordMetadata;
 };
 ```
 
-The ID is derived from canonical JSON, so object key order does not change the ID.
+`public` contains searchable/display metadata such as `kind`, `category`, `primaryTitle`, aliases, descriptions, details, media, relations, recommendations, tags, external IDs, and provenance.
 
-## Lower-Level API
+`internal` contains matching/review/index/source-payload state.
 
-### `createZuuid(input)`
+`record` contains schema/version/timestamp/hash metadata.
 
-Creates an ID from raw bytes and a type.
+## Record Key
+
+Entity records are sharded by the first four hex characters of the UUID without dashes:
 
 ```ts
-const id = await createZuuid({
-  bytes: "hello",
-  mediaType: "text/plain"
-});
+import { entityRecordKey } from "@zivue/zuuid";
+
+entityRecordKey("1706d641-d381-5618-9425-d8cd8b35f898");
+// entities/17/06/1706d641-d381-5618-9425-d8cd8b35f898.json
 ```
 
-### `parseZuuid(id)`
+## API
 
-Parses and validates an ID created by this package.
+### `providerZuuid(input)`
 
-### `createMediaDescriptor(input)`
+Generates a deterministic ZUUID for a provider/category/external ID.
 
-Creates a file-oriented descriptor with byte length, extension, and a storage key. This is a convenience helper for media/file pipelines built on top of the generic ZUUID format.
+### `providerNamespace(provider)`
 
-### `formatStorageKey(input)`
+Returns the UUID namespace configured for a known provider.
 
-Formats a deterministic sharded key from a ZUUID:
+### `createEntityRecord(input)`
 
-```txt
-<prefix>/sha256/<first-2>/<next-2>/<safe-id>.<extension>
-```
+Creates the canonical entity record shell with default public/internal/record fields.
+
+### `categoryFor(value)`
+
+Normalizes a category and derives its entity kind.
+
+### `kindForCategory(category)`
+
+Maps categories such as `movie`, `book`, `game`, `restaurant`, and `person` to broad kinds such as `watch`, `read`, `play`, `visit`, and `people`.
+
+### `entityRecordKey(zuuid, extension?)`
+
+Formats the sharded storage key for an entity record. The default extension is `json`.
 
 ## Development
 
