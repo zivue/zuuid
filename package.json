@@ -1,0 +1,49 @@
+{
+  "name": "@zivue/zuuid",
+  "version": "0.1.0",
+  "description": "Unified identifiers and a unified data structure for typed content.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Zivue",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/zivue/zuuid.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zivue/zuuid/issues"
+  },
+  "homepage": "https://github.com/zivue/zuuid#readme",
+  "keywords": [
+    "id",
+    "data-structure",
+    "content-addressing",
+    "hash",
+    "schema"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run test",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
