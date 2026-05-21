@@ -1,7 +1,7 @@
 {
   "name": "@zivue/zuuid",
   "version": "0.1.0",
-  "description": "TypeScript helpers for Zuuid provider IDs, entity records, and record keys.",
+  "description": "TypeScript helpers for fetching, searching, and transforming datasets.",
   "type": "module",
   "license": "MIT",
   "author": "Zivue",
@@ -17,8 +17,7 @@
     "zuuid",
     "uuid-v5",
     "metadata",
-    "entity-record",
-    "zivue"
+    "dataset"
   ],
   "files": [
     "dist",

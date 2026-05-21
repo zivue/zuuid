@@ -1,8 +1,10 @@
 # @zivue/zuuid
 
-TypeScript helpers for the Zuuid core model.
+TypeScript helpers for fetching, searching, and transforming Zuuid datasets.
 
-Zuuid is the metadata, search, and indexing substrate for Zivue/Stareto. The core model uses deterministic provider-stable UUIDs, canonical entity records, and sharded entity record keys.
+Zuuid is the metadata, search, and indexing substrate for Zivue/Stareto. This package focuses on the client-side model: provider-stable UUIDs, source records, and normalized Zuuid datasets.
+
+Storage, caching, object keys, and persistence belong in a layer outside this package.
 
 ## Install
 
@@ -33,47 +35,74 @@ console.log(zuuid);
 
 `category` is trimmed and lowercased. `externalId` is trimmed but otherwise preserved.
 
-## Entity Record
+## Zuuid Dataset
 
 ```ts
-import { createEntityRecord } from "@zivue/zuuid";
+import { createZuuidData } from "@zivue/zuuid";
 
-const record = createEntityRecord({
+const dataset = createZuuidData({
   zuuid: "1706d641-d381-5618-9425-d8cd8b35f898",
   category: "movie",
   primaryTitle: "Fight Club"
 });
 ```
 
-The record shape follows `ZuuidEntityRecord` from `zuuid-core`:
+The dataset shape is intentionally flat:
 
 ```ts
-type ZuuidEntityRecord = {
+type ZuuidData = {
   zuuid: string;
-  public: EntityPublicData;
-  internal: EntityInternalData;
-  record: RecordMetadata;
+  kind: EntityKind;
+  category: EntityCategory;
+  primaryTitle: string;
+  primaryDate?: string;
+  rating?: number;
+  cover?: string;
+  aliases: Alias[];
+  descriptions: Description[];
+  details: Detail[];
+  media: MediaAsset[];
+  relations: EntityRelation[];
+  recommendations: RecommendationEdge[];
+  tags: string[];
+  externalIds: ExternalId[];
+  provenance: Provenance[];
 };
 ```
 
-`public` contains searchable/display metadata such as `kind`, `category`, `primaryTitle`, aliases, descriptions, details, media, relations, recommendations, tags, external IDs, and provenance.
+Backend-only concerns such as record versions, flags, review state, index state, and object-store metadata are intentionally not part of this package's dataset shape.
 
-`internal` contains matching/review/index/source-payload state.
+## Source Metadata
 
-`record` contains schema/version/timestamp/hash metadata.
-
-## Record Key
-
-Entity records are sharded by the first four hex characters of the UUID without dashes:
+Source records are provider records before they are transformed into canonical entities. They carry the external provider key, raw JSON payload, content hash, and observation timestamps.
 
 ```ts
-import { entityRecordKey } from "@zivue/zuuid";
+import { attachSourceMetadata, createSourceRecord } from "@zivue/zuuid";
 
-entityRecordKey("1706d641-d381-5618-9425-d8cd8b35f898");
-// entities/17/06/1706d641-d381-5618-9425-d8cd8b35f898.json
+const source = await createSourceRecord({
+  source: { provider: "tmdb", category: "movie", externalId: "550" },
+  payload: { title: "Fight Club" },
+  observedAt: "2026-05-21T00:00:00.000Z"
+});
+
+const withSource = attachSourceMetadata(dataset, source);
 ```
 
+`attachSourceMetadata` returns a new dataset with `externalIds` and `provenance` updated.
+
 ## API
+
+## Package Structure
+
+The source is split by Zuuid responsibility:
+
+- `identity.ts`: provider namespaces and UUID v5 ZUUID generation
+- `entity.ts`: flat Zuuid data types and category helpers
+- `source.ts`: source records, external IDs, and provenance
+- `hash.ts`: stable payload hashing
+- `uuid.ts`: UUID parsing/normalization and UUID v5 internals
+- `types.ts`: shared JSON value types
+- `index.ts`: public barrel exports
 
 ### `providerZuuid(input)`
 
@@ -83,9 +112,17 @@ Generates a deterministic ZUUID for a provider/category/external ID.
 
 Returns the UUID namespace configured for a known provider.
 
-### `createEntityRecord(input)`
+### `createZuuidData(input)`
 
-Creates the canonical entity record shell with default public/internal/record fields.
+Creates a normalized Zuuid dataset.
+
+### `createSourceRecord(input)`
+
+Creates a source record and computes the SHA-256 payload hash used for provenance.
+
+### `attachSourceMetadata(dataset, sourceRecord, confidence?)`
+
+Returns a new dataset with external ID and provenance attached.
 
 ### `categoryFor(value)`
 
@@ -94,10 +131,6 @@ Normalizes a category and derives its entity kind.
 ### `kindForCategory(category)`
 
 Maps categories such as `movie`, `book`, `game`, `restaurant`, and `person` to broad kinds such as `watch`, `read`, `play`, `visit`, and `people`.
-
-### `entityRecordKey(zuuid, extension?)`
-
-Formats the sharded storage key for an entity record. The default extension is `json`.
 
 ## Development
 
