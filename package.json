@@ -1,7 +1,7 @@
 {
   "name": "@zivue/zuuid",
   "version": "0.1.0",
-  "description": "TypeScript helpers for fetching, searching, and transforming datasets.",
+  "description": "TypeScript helpers for fetching, searching, and transforming Zuuid datasets.",
   "type": "module",
   "license": "MIT",
   "author": "Zivue",
@@ -17,7 +17,8 @@
     "zuuid",
     "uuid-v5",
     "metadata",
-    "dataset"
+    "dataset",
+    "tmdb"
   ],
   "files": [
     "dist",
@@ -28,6 +29,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./providers/tmdb": {
+      "types": "./dist/providers/tmdb/index.d.ts",
+      "import": "./dist/providers/tmdb/index.js"
+    },
+    "./providers/tmdb/movie": {
+      "types": "./dist/providers/tmdb/movie.d.ts",
+      "import": "./dist/providers/tmdb/movie.js"
     }
   },
   "types": "./dist/index.d.ts",

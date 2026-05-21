@@ -8,7 +8,9 @@ import {
   externalIdFromSource,
   kindForCategory,
   providerNamespace,
-  providerZuuid
+  providerZuuid,
+  TmdbProvider,
+  transformTmdbMovie
 } from "../dist/index.js";
 
 test("providerZuuid matches the Rust provider-stable UUID v5 generation", async () => {
@@ -72,4 +74,65 @@ test("createSourceRecord hashes payloads and attachSourceMetadata updates the re
   assert.equal(updated.provenance.length, 1);
   assert.deepEqual(updatedAgain.externalIds, updated.externalIds);
   assert.deepEqual(updatedAgain.provenance, updated.provenance);
+});
+
+test("transformTmdbMovie maps a TMDB movie source record into Zuuid data", async () => {
+  const source = await createSourceRecord({
+    source: { provider: "tmdb", category: "movie", externalId: "550" },
+    payload: {
+      id: 550,
+      title: "Fight Club",
+      original_title: "Fight Club",
+      overview: "A ticking-time-bomb insomniac meets a soap salesman.",
+      release_date: "1999-10-15",
+      vote_average: 8.4,
+      vote_count: 28931,
+      poster_path: "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg",
+      backdrop_path: "/hZkgoQYus5vegHoetLkCJzb17zJ.jpg",
+      original_language: "en",
+      genres: [
+        { id: 18, name: "Drama" },
+        { id: 53, name: "Thriller" }
+      ],
+      imdb_id: "tt0137523",
+      runtime: 139,
+      status: "Released"
+    },
+    observedAt: "2026-05-14T09:00:00.000Z"
+  });
+
+  const data = await transformTmdbMovie(source);
+
+  assert.equal(data.zuuid, "1706d641-d381-5618-9425-d8cd8b35f898");
+  assert.equal(data.primaryTitle, "Fight Club");
+  assert.deepEqual(data.category, { kind: "watch", value: "movie" });
+  assert.equal(data.primaryDate, "1999-10-15");
+  assert.equal(data.rating, 8.4);
+  assert.deepEqual(data.tags, ["drama", "thriller"]);
+  assert.equal(data.externalIds.some((id) => id.source === "tmdb" && id.value === "550"), true);
+  assert.equal(data.externalIds.some((id) => id.source === "imdb" && id.value === "tt0137523"), true);
+  assert.equal(data.provenance.length, 1);
+  assert.equal(data.cover?.includes("image.tmdb.org"), true);
+});
+
+test("TmdbProvider fetchMovieSourceRecord requests movie details with API key credentials", async () => {
+  let requestedUrl;
+  const provider = new TmdbProvider({
+    apiKey: "test-key",
+    fetch: async (url) => {
+      requestedUrl = new URL(url.toString());
+      return new Response(JSON.stringify({ id: 550, title: "Fight Club" }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+  });
+
+  const source = await provider.fetchMovieSourceRecord({ id: 550 });
+
+  assert.equal(requestedUrl.pathname, "/3/movie/550");
+  assert.equal(requestedUrl.searchParams.get("api_key"), "test-key");
+  assert.equal(requestedUrl.searchParams.get("language"), "en-US");
+  assert.equal(requestedUrl.searchParams.get("append_to_response"), "credits,external_ids,images,keywords");
+  assert.deepEqual(source?.source, { provider: "tmdb", category: "movie", externalId: "550" });
 });

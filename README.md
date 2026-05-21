@@ -90,6 +90,40 @@ const withSource = attachSourceMetadata(dataset, source);
 
 `attachSourceMetadata` returns a new dataset with `externalIds` and `provenance` updated.
 
+## TMDB Movies
+
+The first provider module supports fetching and transforming TMDB movies.
+
+```ts
+import { TmdbProvider } from "@zivue/zuuid/providers/tmdb";
+
+const tmdb = new TmdbProvider({
+  bearerToken: process.env.TMDB_BEARER_TOKEN!
+});
+
+const movie = await tmdb.fetchMovie({ id: 550 });
+
+console.log(movie?.zuuid);
+// 1706d641-d381-5618-9425-d8cd8b35f898
+```
+
+You can also split fetching from transformation:
+
+```ts
+import { TmdbProvider, transformTmdbMovie } from "@zivue/zuuid/providers/tmdb";
+
+const source = await tmdb.fetchMovieSourceRecord({ id: 550 });
+const movie = source ? await transformTmdbMovie(source) : undefined;
+```
+
+Movie-only imports are also available:
+
+```ts
+import { transformTmdbMovie } from "@zivue/zuuid/providers/tmdb/movie";
+```
+
+`TmdbProvider` accepts either `{ bearerToken }` or `{ apiKey }`. Fetching uses `/movie/{id}` with `append_to_response=credits,external_ids,images,keywords`.
+
 ## API
 
 ## Package Structure
@@ -98,6 +132,10 @@ The source is split by Zuuid responsibility:
 
 - `identity.ts`: provider namespaces and UUID v5 ZUUID generation
 - `entity.ts`: flat Zuuid data types and category helpers
+- `providers/<provider>/index.ts`: provider module barrel
+- `providers/<provider>/client.ts`: shared provider client/config
+- `providers/<provider>/<category>.ts`: category-specific fetch and transform helpers
+- `providers/tmdb/movie.ts`: TMDB movie fetch and transform helpers
 - `source.ts`: source records, external IDs, and provenance
 - `hash.ts`: stable payload hashing
 - `uuid.ts`: UUID parsing/normalization and UUID v5 internals
@@ -123,6 +161,14 @@ Creates a source record and computes the SHA-256 payload hash used for provenanc
 ### `attachSourceMetadata(dataset, sourceRecord, confidence?)`
 
 Returns a new dataset with external ID and provenance attached.
+
+### `TmdbProvider`
+
+Fetches TMDB movie source records and transforms them into `ZuuidData`.
+
+### `transformTmdbMovie(sourceRecord, options?)`
+
+Transforms an already-fetched TMDB movie source record into `ZuuidData`.
 
 ### `categoryFor(value)`
 
