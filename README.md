@@ -184,3 +184,31 @@ Maps categories such as `movie`, `book`, `game`, `restaurant`, and `person` to b
 npm install
 npm test
 ```
+
+## Try It
+
+Fetch and transform TMDB movie `550`:
+
+```sh
+TMDB_BEARER_TOKEN=... npm run example:tmdb -- 550
+```
+
+or:
+
+```sh
+TMDB_API_KEY=... npm run example:tmdb -- 550
+```
+
+The example also reads `.env` from the repo root:
+
+```sh
+TMDB_BEARER_TOKEN=...
+# or
+TMDB_READ_ACCESS_TOKEN=...
+# or
+TMDB_API_KEY=...
+```
+
+If both token and API key are present, the example uses the bearer token first. TMDB's API Read Access Token usually starts with `eyJ...`; the v3 API key is a shorter hex-like string.
+
+If `TMDB_API_KEY` accidentally contains a token starting with `eyJ`, the example treats it as a bearer token and sends it as `Authorization: Bearer ...`.

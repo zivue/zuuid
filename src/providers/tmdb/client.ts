@@ -20,7 +20,9 @@ export class TmdbProvider {
     this.backdropBaseUrl = options.backdropBaseUrl === undefined ? TMDB_BACKDROP_BASE_URL : options.backdropBaseUrl;
     this.language = options.language ?? "en-US";
     this.credential =
-      options.bearerToken !== undefined ? { bearerToken: options.bearerToken } : { apiKey: options.apiKey };
+      options.bearerToken !== undefined
+        ? { bearerToken: options.bearerToken.trim() }
+        : { apiKey: options.apiKey.trim() };
   }
 
   async getJson<T>(path: string, params: Record<string, string>): Promise<T | undefined> {
@@ -29,6 +31,7 @@ export class TmdbProvider {
       url.searchParams.set(key, value);
     }
     const headers = new Headers();
+    headers.set("accept", "application/json");
 
     if (this.credential.apiKey !== undefined) {
       url.searchParams.set("api_key", this.credential.apiKey);
@@ -42,7 +45,8 @@ export class TmdbProvider {
     }
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      throw new Error(`TMDB API returned ${response.status}: ${body}`);
+      const authMode = this.credential.apiKey !== undefined ? "api_key" : "bearer";
+      throw new Error(`TMDB API returned ${response.status} using ${authMode}: ${body}`);
     }
 
     return response.json() as Promise<T>;
