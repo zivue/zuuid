@@ -47,7 +47,7 @@ export async function fetchTmdbMovieSourceRecord(
 
   const payload = await provider.getJson<TmdbMoviePayload>(`/movie/${id}`, {
     language: provider.language,
-    append_to_response: "credits,external_ids,images,keywords"
+    append_to_response: "alternative_titles,credits,external_ids,images,keywords,recommendations,similar,translations,watch_providers"
   });
 
   if (!payload) {

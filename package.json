@@ -47,6 +47,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dist",
+    "example:tmdb": "npm run build && node examples/tmdb-movie.mjs",
     "prepublishOnly": "npm run clean && npm run test",
     "test": "npm run build && node --test test/*.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"

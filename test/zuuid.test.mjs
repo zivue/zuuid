@@ -4,6 +4,7 @@ import {
   attachSourceMetadata,
   categoryFor,
   createSourceRecord,
+  createZuuidClient,
   createZuuidData,
   externalIdFromSource,
   kindForCategory,
@@ -133,6 +134,34 @@ test("TmdbProvider fetchMovieSourceRecord requests movie details with API key cr
   assert.equal(requestedUrl.pathname, "/3/movie/550");
   assert.equal(requestedUrl.searchParams.get("api_key"), "test-key");
   assert.equal(requestedUrl.searchParams.get("language"), "en-US");
-  assert.equal(requestedUrl.searchParams.get("append_to_response"), "credits,external_ids,images,keywords");
+  assert.equal(
+    requestedUrl.searchParams.get("append_to_response"),
+    "alternative_titles,credits,external_ids,images,keywords,recommendations,similar,translations,watch_providers"
+  );
   assert.deepEqual(source?.source, { provider: "tmdb", category: "movie", externalId: "550" });
+});
+
+test("createZuuidClient exposes a category-first provider facade", async () => {
+  let requestedUrl;
+  const client = createZuuidClient({
+    providers: {
+      tmdb: {
+        bearerToken: "test-token",
+        fetch: async (url, init) => {
+          requestedUrl = { url: new URL(url.toString()), init };
+          return new Response(JSON.stringify({ id: 550, title: "Fight Club" }), {
+            status: 200,
+            headers: { "content-type": "application/json" }
+          });
+        }
+      }
+    }
+  });
+
+  const source = await client.movie.tmdb?.fetchSourceRecord({ id: 550 });
+
+  assert.equal(requestedUrl.url.pathname, "/3/movie/550");
+  assert.equal(requestedUrl.init.headers.get("authorization"), "Bearer test-token");
+  assert.deepEqual(source?.source, { provider: "tmdb", category: "movie", externalId: "550" });
+  assert.equal(createZuuidClient().movie.tmdb, undefined);
 });

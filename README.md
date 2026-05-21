@@ -124,6 +124,34 @@ import { transformTmdbMovie } from "@zivue/zuuid/providers/tmdb/movie";
 
 `TmdbProvider` accepts either `{ bearerToken }` or `{ apiKey }`. Fetching uses `/movie/{id}` with `append_to_response=credits,external_ids,images,keywords`.
 
+## Client Instantiation
+
+For applications with multiple providers, use `createZuuidClient` to wire provider config once:
+
+```ts
+import { createZuuidClient } from "@zivue/zuuid";
+
+const zuuid = createZuuidClient({
+  providers: {
+    tmdb: {
+      bearerToken: process.env.TMDB_BEARER_TOKEN!
+    }
+    // Future movie providers can sit beside tmdb, e.g. omdb.
+  }
+});
+
+const movie = await zuuid.movie.tmdb?.fetch({ id: 550 });
+```
+
+The config is provider-keyed because apps usually manage credentials per provider. The client facade is category-first, so multiple movie providers can live under `zuuid.movie`:
+
+```ts
+zuuid.movie.tmdb?.fetch({ id: 550 });
+// later: zuuid.movie.omdb?.fetch(...)
+```
+
+The client is stateless: it does not cache, persist, schedule, or read environment variables. It only closes over provider configuration and exposes category/provider methods.
+
 ## API
 
 ## Package Structure
@@ -132,6 +160,7 @@ The source is split by Zuuid responsibility:
 
 - `identity.ts`: provider namespaces and UUID v5 ZUUID generation
 - `entity.ts`: flat Zuuid data types and category helpers
+- `client.ts`: stateless package instantiator for configured providers
 - `providers/<provider>/index.ts`: provider module barrel
 - `providers/<provider>/client.ts`: shared provider client/config
 - `providers/<provider>/<category>.ts`: category-specific fetch and transform helpers
@@ -212,3 +241,10 @@ TMDB_API_KEY=...
 If both token and API key are present, the example uses the bearer token first. TMDB's API Read Access Token usually starts with `eyJ...`; the v3 API key is a shorter hex-like string.
 
 If `TMDB_API_KEY` accidentally contains a token starting with `eyJ`, the example treats it as a bearer token and sends it as `Authorization: Bearer ...`.
+
+The example writes debug output to:
+
+```txt
+data/tmdb/movie/550.raw.json
+data/tmdb/movie/550.zuuid.json
+```
