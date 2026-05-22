@@ -465,17 +465,22 @@ async function addCredits(data: ZuuidData, payload: TmdbMoviePayload): Promise<v
     if (!id || !name) {
       continue;
     }
+    const zuuid = await providerZuuid({ provider: TMDB_PROVIDER, category: "person", externalId: id });
     data.relations.push({
-      relatedZuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: "person", externalId: id }),
+      id: zuuid,
+      zuuid,
       relationType: "performed_by",
       direction: "outgoing",
-      relatedTitle: name,
-      relatedCategory: "person",
-      relatedImage: mediaUrl(cast.profile_path ?? undefined, TMDB_POSTER_BASE_URL),
+      title: name,
+      category: "person",
+      date: null,
+      cover: mediaUrl(cast.profile_path ?? undefined, TMDB_POSTER_BASE_URL) ?? null,
+      rating: null,
+      weight: null,
       source: TMDB_PROVIDER,
       externalId: id,
-      attribute: stringField(cast.character),
-      order: cast.order
+      attribute: stringField(cast.character) ?? null,
+      order: cast.order ?? null
     });
   }
 
@@ -486,16 +491,22 @@ async function addCredits(data: ZuuidData, payload: TmdbMoviePayload): Promise<v
     if (!id || !name || !job) {
       continue;
     }
+    const zuuid = await providerZuuid({ provider: TMDB_PROVIDER, category: "person", externalId: id });
     data.relations.push({
-      relatedZuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: "person", externalId: id }),
+      id: zuuid,
+      zuuid,
       relationType: relationForCrewJob(job),
       direction: "outgoing",
-      relatedTitle: name,
-      relatedCategory: "person",
-      relatedImage: mediaUrl(crew.profile_path ?? undefined, TMDB_POSTER_BASE_URL),
+      title: name,
+      category: "person",
+      date: null,
+      cover: mediaUrl(crew.profile_path ?? undefined, TMDB_POSTER_BASE_URL) ?? null,
+      rating: null,
+      weight: null,
       source: TMDB_PROVIDER,
       externalId: id,
-      attribute: job
+      attribute: job,
+      order: null
     });
   }
 }
@@ -507,14 +518,22 @@ async function addCollectionsAndCompanies(
 ): Promise<void> {
   if (payload.belongs_to_collection?.id && payload.belongs_to_collection.name) {
     const id = String(payload.belongs_to_collection.id);
+    const zuuid = await providerZuuid({ provider: TMDB_PROVIDER, category: "collection", externalId: id });
     data.relations.push({
-      relatedZuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: "collection", externalId: id }),
+      id: zuuid,
+      zuuid,
       relationType: "part_of",
       direction: "outgoing",
-      relatedTitle: payload.belongs_to_collection.name,
-      relatedCategory: "collection",
+      title: payload.belongs_to_collection.name,
+      category: "collection",
+      date: null,
+      cover: mediaUrl(payload.belongs_to_collection.poster_path, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL) ?? null,
+      rating: null,
+      weight: null,
       source: TMDB_PROVIDER,
-      externalId: id
+      externalId: id,
+      attribute: null,
+      order: null
     });
   }
 
@@ -523,15 +542,22 @@ async function addCollectionsAndCompanies(
       continue;
     }
     const id = String(company.id);
+    const zuuid = await providerZuuid({ provider: TMDB_PROVIDER, category: "company", externalId: id });
     data.relations.push({
-      relatedZuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: "company", externalId: id }),
+      id: zuuid,
+      zuuid,
       relationType: "published_by",
       direction: "outgoing",
-      relatedTitle: company.name,
-      relatedCategory: "company",
+      title: company.name,
+      category: "company",
+      date: null,
+      cover: mediaUrl(company.logo_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL) ?? null,
+      rating: null,
+      weight: null,
       source: TMDB_PROVIDER,
       externalId: id,
-      attribute: stringField(company.origin_country)
+      attribute: stringField(company.origin_country) ?? null,
+      order: null
     });
     addImage(data, "company_logo", company.logo_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL, false);
   }
@@ -549,16 +575,26 @@ async function addRelatedMovies(
     }
     const id = String(item.id);
     const title = stringField(item.title) ?? stringField(item.original_title);
+    if (!title) {
+      continue;
+    }
+    const zuuid = await providerZuuid({ provider: TMDB_PROVIDER, category: TMDB_MOVIE_CATEGORY, externalId: id });
+    const rating = typeof item.vote_average === "number" ? item.vote_average : null;
     data.recommendations.push({
-      targetZuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: TMDB_MOVIE_CATEGORY, externalId: id }),
+      id: zuuid,
+      zuuid,
       recommendationType,
-      score: typeof item.vote_average === "number" ? item.vote_average : 0,
+      relationType: recommendationType,
+      weight: rating,
       source: TMDB_PROVIDER,
-      targetTitle: title,
-      targetCategory: TMDB_MOVIE_CATEGORY,
-      targetDate: stringField(item.release_date),
-      targetCover: mediaUrl(item.poster_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL),
+      title,
+      category: TMDB_MOVIE_CATEGORY,
+      date: stringField(item.release_date) ?? null,
+      cover: mediaUrl(item.poster_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL) ?? null,
+      rating,
       externalId: id,
+      attribute: null,
+      order: null,
       reasons: [recommendationType]
     });
   }

@@ -57,35 +57,7 @@ export type RelationKind =
   | "source_of"
   | string;
 
-export type EntityRelation = {
-  relatedZuuid: string;
-  relationType: RelationKind;
-  direction: "outgoing" | "incoming" | "symmetric";
-  relatedTitle?: string;
-  relatedCategory?: string;
-  relatedImage?: string;
-  source?: string;
-  externalId?: string;
-  attribute?: string;
-  confidence?: number;
-  order?: number;
-  data?: JsonValue;
-};
-
 export type RecommendationKind = "similar" | "related" | "same_creator" | "same_series" | "same_topic" | string;
-
-export type RecommendationEdge = {
-  targetZuuid: string;
-  recommendationType: RecommendationKind;
-  score: number;
-  source?: string;
-  targetTitle?: string;
-  targetCategory?: string;
-  targetCover?: string;
-  targetDate?: string;
-  externalId?: string;
-  reasons: string[];
-};
 
 export type ZuuidData = {
   zuuid: string;
@@ -106,7 +78,7 @@ export type ZuuidData = {
   provenance: Provenance[];
 };
 
-export type ZuuidSearchResult = {
+export type ZuuidListItem = {
   id: string;
   zuuid: string;
   category: string;
@@ -118,6 +90,26 @@ export type ZuuidSearchResult = {
   relationType: string | null;
   attribute: string | null;
   order: number | null;
+};
+
+export type EntityRelation = ZuuidListItem & {
+  relationType: RelationKind;
+  direction: "outgoing" | "incoming" | "symmetric";
+  source?: string;
+  externalId?: string;
+  confidence?: number;
+  data?: JsonValue;
+};
+
+export type RecommendationEdge = ZuuidListItem & {
+  recommendationType: RecommendationKind;
+  relationType: RecommendationKind;
+  source?: string;
+  externalId?: string;
+  reasons: string[];
+};
+
+export type ZuuidSearchResult = ZuuidListItem & {
   source: ExternalId;
 };
 

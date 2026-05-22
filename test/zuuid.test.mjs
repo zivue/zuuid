@@ -179,16 +179,16 @@ test("transformTmdbMovie maps rich TMDB movie append payloads", async () => {
   assert.equal(
     data.relations.some(
       (relation) =>
-        relation.relatedTitle === "Brad Pitt" &&
+        relation.title === "Brad Pitt" &&
         relation.attribute === "Tyler Durden" &&
-        relation.relatedImage?.includes("image.tmdb.org")
+        relation.cover?.includes("image.tmdb.org")
     ),
     true
   );
-  assert.equal(data.relations.some((relation) => relation.relatedTitle === "David Fincher" && relation.relationType === "directed_by"), true);
-  assert.equal(data.relations.some((relation) => relation.relatedTitle === "20th Century Fox" && relation.relatedCategory === "company"), true);
-  assert.equal(data.recommendations.some((recommendation) => recommendation.targetTitle === "Requiem for a Dream"), true);
-  assert.equal(data.recommendations.some((recommendation) => recommendation.targetTitle === "American Psycho"), true);
+  assert.equal(data.relations.some((relation) => relation.title === "David Fincher" && relation.relationType === "directed_by"), true);
+  assert.equal(data.relations.some((relation) => relation.title === "20th Century Fox" && relation.category === "company"), true);
+  assert.equal(data.recommendations.some((recommendation) => recommendation.title === "Requiem for a Dream"), true);
+  assert.equal(data.recommendations.some((recommendation) => recommendation.title === "American Psycho"), true);
   assert.equal(data.media.some((media) => media.mediaCategory === "logo"), true);
   assert.equal(data.details.some((detail) => detail.key === "tagline"), true);
   assert.equal(data.details.some((detail) => detail.key === "origin_country" && Array.isArray(detail.value)), true);
@@ -289,18 +289,18 @@ test("transformTmdbTv maps a TMDB tv source record into Zuuid data", async () =>
   assert.equal(
     data.relations.some(
       (relation) =>
-        relation.relatedTitle === "David Benioff" &&
+        relation.title === "David Benioff" &&
         relation.relationType === "creator" &&
-        relation.relatedImage?.includes("image.tmdb.org")
+        relation.cover?.includes("image.tmdb.org")
     ),
     true
   );
   assert.equal(
     data.relations.some(
       (relation) =>
-        relation.relatedTitle === "Kit Harington" &&
+        relation.title === "Kit Harington" &&
         relation.attribute === "Jon Snow" &&
-        relation.relatedImage?.includes("image.tmdb.org") &&
+        relation.cover?.includes("image.tmdb.org") &&
         relation.data?.total_episode_count === 62
     ),
     true
@@ -308,7 +308,7 @@ test("transformTmdbTv maps a TMDB tv source record into Zuuid data", async () =>
   assert.equal(
     data.relations.some(
       (relation) =>
-        relation.relatedTitle === "David Benioff" &&
+        relation.title === "David Benioff" &&
         relation.relationType === "produced_by" &&
         relation.attribute === "Executive Producer" &&
         relation.data?.total_episode_count === 73
@@ -318,8 +318,8 @@ test("transformTmdbTv maps a TMDB tv source record into Zuuid data", async () =>
   assert.equal(
     data.relations.some(
       (relation) =>
-        relation.relatedTitle === "Season 1" &&
-        relation.relatedCategory === "tvseason" &&
+        relation.title === "Season 1" &&
+        relation.category === "tvseason" &&
         relation.data?.episode_count === 10
     ),
     true
@@ -425,15 +425,15 @@ test("transformTmdbPerson maps a TMDB person source record into Zuuid data", asy
   assert.equal(
     data.relations.some(
       (relation) =>
-        relation.relatedTitle === "Fight Club" &&
+        relation.title === "Fight Club" &&
         relation.relationType === "appears_in" &&
-        relation.relatedCategory === "movie" &&
-        relation.relatedImage?.includes("image.tmdb.org") &&
+        relation.category === "movie" &&
+        relation.cover?.includes("image.tmdb.org") &&
         relation.data?.voteAverage === 8.4
     ),
     true
   );
-  assert.equal(data.relations.some((relation) => relation.relatedTitle === "Requiem for a Dream" && relation.relationType === "produced"), true);
+  assert.equal(data.relations.some((relation) => relation.title === "Requiem for a Dream" && relation.relationType === "produced"), true);
   assert.equal(data.media.some((media) => media.mediaCategory === "profile" && media.data?.voteAverage === 5.5), true);
 });
 

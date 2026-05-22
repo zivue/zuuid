@@ -70,7 +70,7 @@ type ZuuidData = {
 };
 ```
 
-Relations and recommendations can include provider/display hints such as titles, categories, external IDs, cover URLs, and dates. That lets a transformed dataset carry useful related-entity context before those related entities are fetched as full Zuuid datasets.
+Search results, relations, and recommendations use the same lightweight list item fields: `id`, `zuuid`, `category`, `title`, `date`, `cover`, `rating`, `weight`, `relationType`, `attribute`, and `order`. That lets transformed datasets and search results carry useful related-entity context before those related entities are fetched as full Zuuid datasets.
 
 Backend-only concerns such as record versions, flags, review state, index state, and object-store metadata are intentionally not part of this package's dataset shape.
 

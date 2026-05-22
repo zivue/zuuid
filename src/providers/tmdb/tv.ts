@@ -381,15 +381,22 @@ async function addCreatedByRelations(data: ZuuidData, payload: TmdbTvPayload): P
       continue;
     }
     const id = String(creator.id);
+    const zuuid = await providerZuuid({ provider: TMDB_PROVIDER, category: "person", externalId: id });
     data.relations.push({
-      relatedZuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: "person", externalId: id }),
+      id: zuuid,
+      zuuid,
       relationType: "creator",
       direction: "outgoing",
-      relatedTitle: creator.name,
-      relatedCategory: "person",
-      relatedImage: mediaUrl(creator.profile_path ?? undefined, TMDB_POSTER_BASE_URL),
+      title: creator.name,
+      category: "person",
+      date: null,
+      cover: mediaUrl(creator.profile_path ?? undefined, TMDB_POSTER_BASE_URL) ?? null,
+      rating: null,
+      weight: null,
       source: TMDB_PROVIDER,
-      externalId: id
+      externalId: id,
+      attribute: null,
+      order: null
     });
   }
 }
@@ -401,16 +408,21 @@ async function addAggregateCreditRelations(data: ZuuidData, payload: TmdbTvPaylo
     }
     const id = String(cast.id);
     const primaryRole = cast.roles?.[0];
+    const zuuid = await providerZuuid({ provider: TMDB_PROVIDER, category: "person", externalId: id });
     data.relations.push({
-      relatedZuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: "person", externalId: id }),
+      id: zuuid,
+      zuuid,
       relationType: "performed_by",
       direction: "outgoing",
-      relatedTitle: cast.name,
-      relatedCategory: "person",
-      relatedImage: mediaUrl(cast.profile_path ?? undefined, TMDB_POSTER_BASE_URL),
+      title: cast.name,
+      category: "person",
+      date: null,
+      cover: mediaUrl(cast.profile_path ?? undefined, TMDB_POSTER_BASE_URL) ?? null,
+      rating: null,
+      weight: null,
       source: TMDB_PROVIDER,
       externalId: id,
-      attribute: stringField(primaryRole?.character),
+      attribute: stringField(primaryRole?.character) ?? null,
       order: 0,
       data: cast as JsonValue
     });
@@ -422,16 +434,21 @@ async function addAggregateCreditRelations(data: ZuuidData, payload: TmdbTvPaylo
     }
     const id = String(crew.id);
     const primaryJob = crew.jobs?.[0]?.job ?? crew.department;
+    const zuuid = await providerZuuid({ provider: TMDB_PROVIDER, category: "person", externalId: id });
     data.relations.push({
-      relatedZuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: "person", externalId: id }),
+      id: zuuid,
+      zuuid,
       relationType: primaryJob ? relationForCrewJob(primaryJob) : "related_to",
       direction: "outgoing",
-      relatedTitle: crew.name,
-      relatedCategory: "person",
-      relatedImage: mediaUrl(crew.profile_path ?? undefined, TMDB_POSTER_BASE_URL),
+      title: crew.name,
+      category: "person",
+      date: null,
+      cover: mediaUrl(crew.profile_path ?? undefined, TMDB_POSTER_BASE_URL) ?? null,
+      rating: null,
+      weight: null,
       source: TMDB_PROVIDER,
       externalId: id,
-      attribute: stringField(primaryJob),
+      attribute: stringField(primaryJob) ?? null,
       order: 0,
       data: crew as JsonValue
     });
@@ -442,23 +459,28 @@ async function addNamedRelations(
   data: ZuuidData,
   values: { id?: number; name?: string; origin_country?: string }[] | undefined,
   relationType: string,
-  relatedCategory: string
+  category: string
 ): Promise<void> {
   for (const [index, value] of (values ?? []).entries()) {
     if (!value.id || !value.name) {
       continue;
     }
     const id = String(value.id);
+    const zuuid = await providerZuuid({ provider: TMDB_PROVIDER, category, externalId: id });
     data.relations.push({
-      relatedZuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: relatedCategory, externalId: id }),
+      id: zuuid,
+      zuuid,
       relationType,
       direction: "outgoing",
-      relatedTitle: value.name,
-      relatedCategory,
-      relatedImage: mediaUrl("logo_path" in value ? (value.logo_path as string | null | undefined) ?? undefined : undefined, TMDB_POSTER_BASE_URL),
+      title: value.name,
+      category,
+      date: null,
+      cover: mediaUrl("logo_path" in value ? (value.logo_path as string | null | undefined) ?? undefined : undefined, TMDB_POSTER_BASE_URL) ?? null,
+      rating: null,
+      weight: null,
       source: TMDB_PROVIDER,
       externalId: id,
-      attribute: stringField(value.origin_country),
+      attribute: stringField(value.origin_country) ?? null,
       order: index
     });
   }
@@ -475,12 +497,18 @@ async function addSeasonRelations(
       continue;
     }
     const externalId = `${tvId}-${season.season_number}`;
+    const zuuid = await providerZuuid({ provider: TMDB_PROVIDER, category: "tvseason", externalId });
     data.relations.push({
-      relatedZuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: "tvseason", externalId }),
+      id: zuuid,
+      zuuid,
       relationType: "contains",
       direction: "outgoing",
-      relatedTitle: season.name,
-      relatedCategory: "tvseason",
+      title: season.name,
+      category: "tvseason",
+      date: stringField(season.air_date) ?? null,
+      cover: mediaUrl(season.poster_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL) ?? null,
+      rating: null,
+      weight: null,
       source: TMDB_PROVIDER,
       externalId,
       attribute: `season:${season.name}`,
@@ -503,16 +531,26 @@ async function addRelatedTv(
     }
     const id = String(item.id);
     const title = stringField(item.name) ?? stringField(item.original_name);
+    if (!title) {
+      continue;
+    }
+    const zuuid = await providerZuuid({ provider: TMDB_PROVIDER, category: TMDB_TV_CATEGORY, externalId: id });
+    const rating = typeof item.vote_average === "number" ? item.vote_average : null;
     data.recommendations.push({
-      targetZuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: TMDB_TV_CATEGORY, externalId: id }),
+      id: zuuid,
+      zuuid,
       recommendationType,
-      score: typeof item.vote_average === "number" ? item.vote_average : 0,
+      relationType: recommendationType,
+      weight: rating,
       source: TMDB_PROVIDER,
-      targetTitle: title,
-      targetCategory: ZUUID_TV_CATEGORY,
-      targetDate: stringField(item.first_air_date),
-      targetCover: mediaUrl(item.poster_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL),
+      title,
+      category: ZUUID_TV_CATEGORY,
+      date: stringField(item.first_air_date) ?? null,
+      cover: mediaUrl(item.poster_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL) ?? null,
+      rating,
       externalId: id,
+      attribute: null,
+      order: null,
       reasons: [recommendationType]
     });
   }

@@ -334,17 +334,26 @@ async function addCreditRelation(
   }
 
   const title = stringField(credit.title) ?? stringField(credit.name) ?? stringField(credit.original_title) ?? stringField(credit.original_name);
+  if (!title) {
+    return;
+  }
   const externalId = String(credit.id);
+  const zuuid = await providerZuuid({ provider: TMDB_PROVIDER, category: credit.media_type === "tv" ? "tv" : "movie", externalId });
+  const rating = typeof credit.vote_average === "number" ? credit.vote_average : null;
   data.relations.push({
-    relatedZuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: credit.media_type === "tv" ? "tv" : "movie", externalId }),
+    id: zuuid,
+    zuuid,
     relationType,
     direction: "outgoing",
-    relatedTitle: title,
-    relatedCategory: category,
-    relatedImage: mediaUrl(credit.poster_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL),
+    title,
+    category,
+    date: stringField(credit.release_date) ?? stringField(credit.first_air_date) ?? null,
+    cover: mediaUrl(credit.poster_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL) ?? null,
+    rating,
+    weight: rating,
     source: TMDB_PROVIDER,
     externalId,
-    attribute: stringField(attribute),
+    attribute: stringField(attribute) ?? null,
     order,
     data: compactCreditData(credit)
   });
