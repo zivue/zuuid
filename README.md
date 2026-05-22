@@ -137,6 +137,22 @@ console.log(movies.pagination);
 // { page: 1, totalPages: 10, totalResults: 190 }
 
 const selectedMovie = movies.results[0];
+console.log(selectedMovie);
+// {
+//   id: "1706d641-d381-5618-9425-d8cd8b35f898",
+//   zuuid: "1706d641-d381-5618-9425-d8cd8b35f898",
+//   category: "movie",
+//   title: "Fight Club",
+//   date: "1999-10-15",
+//   cover: "https://image.tmdb.org/t/p/w500/...",
+//   rating: 8.4,
+//   weight: 20.0,
+//   relationType: null,
+//   attribute: null,
+//   order: null,
+//   source: { source: "tmdb", category: "movie", value: "550" }
+// }
+
 const fullMovie = selectedMovie ? await tmdb.fetchMovie({ id: selectedMovie.source.value }) : undefined;
 ```
 

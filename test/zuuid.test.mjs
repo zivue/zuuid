@@ -548,25 +548,29 @@ test("TmdbProvider searches unified movie, tv, and people results", async () => 
   const tv = await provider.searchTv({ query: "game" });
   const people = await provider.searchPeople({ query: "brad" });
 
-  assert.equal(movies.results[0]?.primaryTitle, "Fight Club");
+  assert.equal(movies.results[0]?.title, "Fight Club");
   assert.equal(movies.results[0]?.category, "movie");
-  assert.equal(movies.results[0]?.kind, "watch");
-  assert.equal(movies.results[0]?.primaryDate, "1999-10-15");
+  assert.equal(movies.results[0]?.date, "1999-10-15");
   assert.equal(movies.results[0]?.rating, 8.4);
   assert.equal(movies.results[0]?.cover?.includes("image.tmdb.org"), true);
+  assert.equal(movies.results[0]?.weight, 20);
+  assert.equal(movies.results[0]?.attribute, null);
+  assert.equal(movies.results[0]?.relationType, null);
+  assert.equal(movies.results[0]?.order, null);
+  assert.equal(movies.results[0]?.id, movies.results[0]?.zuuid);
   assert.deepEqual(movies.results[0]?.source, { source: "tmdb", category: "movie", value: "550" });
   assert.deepEqual(movies.pagination, { page: 1, totalPages: 1, totalResults: 1 });
 
-  assert.equal(tv.results[0]?.primaryTitle, "Game of Thrones");
+  assert.equal(tv.results[0]?.title, "Game of Thrones");
   assert.equal(tv.results[0]?.category, "tvshow");
-  assert.equal(tv.results[0]?.kind, "watch");
   assert.deepEqual(tv.results[0]?.source, { source: "tmdb", category: "tv", value: "1399" });
   assert.deepEqual(tv.pagination, { page: 1, totalPages: 1, totalResults: 1 });
 
-  assert.equal(people.results[0]?.primaryTitle, "Brad Pitt");
+  assert.equal(people.results[0]?.title, "Brad Pitt");
   assert.equal(people.results[0]?.category, "person");
-  assert.equal(people.results[0]?.kind, "people");
-  assert.equal(people.results[0]?.description, "Acting");
+  assert.equal(people.results[0]?.date, null);
+  assert.equal(people.results[0]?.rating, null);
+  assert.equal(people.results[0]?.attribute, "Acting");
   assert.deepEqual(people.results[0]?.source, { source: "tmdb", category: "person", value: "287" });
   assert.deepEqual(people.pagination, { page: 1, totalPages: 1, totalResults: 1 });
 });

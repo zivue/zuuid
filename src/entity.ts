@@ -107,15 +107,17 @@ export type ZuuidData = {
 };
 
 export type ZuuidSearchResult = {
+  id: string;
   zuuid: string;
-  kind: EntityKind;
   category: string;
-  primaryTitle: string;
-  primaryDate?: string;
-  rating?: number;
-  cover?: string;
-  description?: string;
-  score?: number;
+  title: string;
+  date: string | null;
+  cover: string | null;
+  rating: number | null;
+  weight: number | null;
+  relationType: string | null;
+  attribute: string | null;
+  order: number | null;
   source: ExternalId;
 };
 

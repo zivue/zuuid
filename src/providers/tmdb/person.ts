@@ -1,4 +1,4 @@
-import { categoryFor, createZuuidData, type SearchResponse, type ZuuidData, type ZuuidSearchResult } from "../../entity.js";
+import { createZuuidData, type SearchResponse, type ZuuidData, type ZuuidSearchResult } from "../../entity.js";
 import { providerZuuid } from "../../identity.js";
 import { attachSourceMetadata, createSourceRecord, type SourceRecord } from "../../source.js";
 import type { JsonValue } from "../../types.js";
@@ -141,15 +141,19 @@ export async function searchTmdbPeople(
     if (!title) {
       continue;
     }
-    const category = categoryFor(ZUUID_PERSON_CATEGORY);
+    const zuuid = await providerZuuid({ provider: TMDB_PROVIDER, category: TMDB_PERSON_CATEGORY, externalId });
     searchResults.push({
-      zuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: TMDB_PERSON_CATEGORY, externalId }),
-      kind: category.kind,
-      category: category.category,
-      primaryTitle: title,
-      cover: mediaUrl(result.profile_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL),
-      description: stringField(result.known_for_department),
-      score: typeof result.popularity === "number" ? result.popularity : undefined,
+      id: zuuid,
+      zuuid,
+      category: ZUUID_PERSON_CATEGORY,
+      title,
+      date: null,
+      cover: mediaUrl(result.profile_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL) ?? null,
+      rating: null,
+      weight: typeof result.popularity === "number" ? result.popularity : null,
+      relationType: null,
+      attribute: stringField(result.known_for_department) ?? null,
+      order: null,
       source: { source: TMDB_PROVIDER, category: TMDB_PERSON_CATEGORY, value: externalId }
     });
   }

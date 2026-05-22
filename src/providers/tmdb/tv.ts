@@ -1,4 +1,4 @@
-import { categoryFor, createZuuidData, type SearchResponse, type ZuuidData, type ZuuidSearchResult } from "../../entity.js";
+import { createZuuidData, type SearchResponse, type ZuuidData, type ZuuidSearchResult } from "../../entity.js";
 import { providerZuuid } from "../../identity.js";
 import { attachSourceMetadata, createSourceRecord, type SourceRecord } from "../../source.js";
 import type { JsonValue } from "../../types.js";
@@ -196,17 +196,19 @@ export async function searchTmdbTv(
     if (!title) {
       continue;
     }
-    const category = categoryFor(ZUUID_TV_CATEGORY);
+    const zuuid = await providerZuuid({ provider: TMDB_PROVIDER, category: TMDB_TV_CATEGORY, externalId });
     searchResults.push({
-      zuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: TMDB_TV_CATEGORY, externalId }),
-      kind: category.kind,
-      category: category.category,
-      primaryTitle: title,
-      primaryDate: stringField(result.first_air_date),
-      rating: typeof result.vote_average === "number" ? result.vote_average : undefined,
-      cover: mediaUrl(result.poster_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL),
-      description: stringField(result.overview),
-      score: typeof result.popularity === "number" ? result.popularity : undefined,
+      id: zuuid,
+      zuuid,
+      category: ZUUID_TV_CATEGORY,
+      title,
+      date: stringField(result.first_air_date) ?? null,
+      cover: mediaUrl(result.poster_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL) ?? null,
+      rating: typeof result.vote_average === "number" ? result.vote_average : null,
+      weight: typeof result.popularity === "number" ? result.popularity : null,
+      relationType: null,
+      attribute: null,
+      order: null,
       source: { source: TMDB_PROVIDER, category: TMDB_TV_CATEGORY, value: externalId }
     });
   }
