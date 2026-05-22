@@ -12,6 +12,26 @@ Storage, caching, object keys, and persistence belong in a layer outside this pa
 npm install @zivue/zuuid
 ```
 
+## Quick Start
+
+```ts
+import { createZuuidClient } from "@zivue/zuuid";
+
+const zuuid = createZuuidClient({
+  providers: {
+    tmdb: {
+      bearerToken: process.env.TMDB_BEARER_TOKEN!
+    }
+  }
+});
+
+const search = await zuuid.movie.tmdb?.search({ query: "Fight Club" });
+const selected = search?.results[0];
+const movie = selected ? await zuuid.movie.tmdb?.fetch({ id: selected.source.value }) : undefined;
+
+console.log(movie?.zuuid);
+```
+
 ## Generate A ZUUID
 
 Zuuid generation is UUID v5:
@@ -96,6 +116,12 @@ const withSource = attachSourceMetadata(dataset, source);
 
 The first provider module supports fetching and transforming TMDB movies, TV shows, and people.
 
+| Provider | Category | Search | Fetch | Transform |
+| --- | --- | --- | --- | --- |
+| TMDB | movie | yes | yes | yes |
+| TMDB | tv | yes | yes | yes |
+| TMDB | person | yes | yes | yes |
+
 ```ts
 import { TmdbProvider } from "@zivue/zuuid/providers/tmdb";
 
@@ -170,7 +196,7 @@ import { transformTmdbTv } from "@zivue/zuuid/providers/tmdb/tv";
 import { transformTmdbPerson } from "@zivue/zuuid/providers/tmdb/person";
 ```
 
-`TmdbProvider` accepts either `{ bearerToken }` or `{ apiKey }`.
+`TmdbProvider` accepts either `{ bearerToken }` or `{ apiKey }`. TMDB bearer tokens are API Read Access Tokens and usually start with `eyJ...`; v3 API keys are shorter hex-like strings.
 
 ## Client Instantiation
 
@@ -285,25 +311,25 @@ npm test
 Fetch and transform TMDB movie `550`:
 
 ```sh
-TMDB_BEARER_TOKEN=... npm run example:tmdb -- movie 550
+TMDB_BEARER_TOKEN=... npm run example:tmdb-fetch -- movie 550
 ```
 
 or:
 
 ```sh
-TMDB_API_KEY=... npm run example:tmdb -- movie 550
+TMDB_API_KEY=... npm run example:tmdb-fetch -- movie 550
 ```
 
 Fetch and transform TMDB TV show `1399`:
 
 ```sh
-TMDB_BEARER_TOKEN=... npm run example:tmdb -- tv 1399
+TMDB_BEARER_TOKEN=... npm run example:tmdb-fetch -- tv 1399
 ```
 
 Fetch and transform TMDB person `287`:
 
 ```sh
-TMDB_BEARER_TOKEN=... npm run example:tmdb -- people 287
+TMDB_BEARER_TOKEN=... npm run example:tmdb-fetch -- people 287
 ```
 
 Search TMDB and print unified search results:

@@ -23,6 +23,7 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "exports": {
@@ -48,6 +49,9 @@
     }
   },
   "types": "./dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
   "sideEffects": false,
   "engines": {
     "node": ">=18"
@@ -55,7 +59,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dist",
-    "example:tmdb": "npm run build && node examples/tmdb-movie.mjs",
+    "example:tmdb": "npm run example:tmdb-fetch --",
+    "example:tmdb-fetch": "npm run build && node examples/tmdb-fetch.mjs",
     "example:tmdb-search": "npm run build && node examples/tmdb-search.mjs",
     "prepublishOnly": "npm run clean && npm run test",
     "test": "npm run build && node --test test/*.test.mjs",
