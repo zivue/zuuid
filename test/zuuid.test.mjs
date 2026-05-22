@@ -146,6 +146,14 @@ test("transformTmdbMovie maps rich TMDB movie append payloads", async () => {
       production_companies: [{ id: 25, name: "20th Century Fox", origin_country: "US" }],
       recommendations: { results: [{ id: 641, title: "Requiem for a Dream", vote_average: 8.0 }] },
       similar: { results: [{ id: 1359, title: "American Psycho", vote_average: 7.4 }] },
+      release_dates: {
+        results: [
+          {
+            iso_3166_1: "US",
+            release_dates: [{ certification: "R", release_date: "1999-10-15T00:00:00.000Z", type: 3 }]
+          }
+        ]
+      },
       images: {
         posters: [{ file_path: "/poster.jpg", width: 100, height: 150 }],
         backdrops: [{ file_path: "/backdrop.jpg", width: 200, height: 100 }],
@@ -183,6 +191,8 @@ test("transformTmdbMovie maps rich TMDB movie append payloads", async () => {
   assert.equal(data.media.some((media) => media.mediaCategory === "logo"), true);
   assert.equal(data.details.some((detail) => detail.key === "tagline"), true);
   assert.equal(data.details.some((detail) => detail.key === "origin_country" && Array.isArray(detail.data)), true);
+  assert.equal(data.details.some((detail) => detail.key === "certifications" && detail.data?.[0]?.certification === "R"), true);
+  assert.equal(data.details.some((detail) => detail.key === "release_dates" && detail.data?.[0]?.iso_3166_1 === "US"), true);
 });
 
 test("TmdbProvider fetchMovieSourceRecord requests movie details with API key credentials", async () => {
@@ -205,7 +215,7 @@ test("TmdbProvider fetchMovieSourceRecord requests movie details with API key cr
   assert.equal(requestedUrl.searchParams.get("language"), "en-US");
   assert.equal(
     requestedUrl.searchParams.get("append_to_response"),
-    "alternative_titles,credits,external_ids,images,keywords,recommendations,similar,translations"
+    "alternative_titles,credits,external_ids,images,keywords,recommendations,similar,translations,release_dates"
   );
   assert.deepEqual(source?.source, { provider: "tmdb", category: "movie", externalId: "550" });
 });
@@ -322,6 +332,7 @@ test("transformTmdbTv maps a TMDB tv source record into Zuuid data", async () =>
   assert.equal(data.details.some((detail) => detail.key === "episode_run_time" && detail.data?.[0] === 60), true);
   assert.equal(data.details.some((detail) => detail.key === "languages" && detail.data?.[0] === "en"), true);
   assert.equal(data.details.some((detail) => detail.key === "production_countries" && detail.data?.[0]?.iso_3166_1 === "US"), true);
+  assert.equal(data.details.some((detail) => detail.key === "certifications" && detail.data?.[0]?.certification === "TV-MA"), true);
   assert.equal(data.details.some((detail) => detail.key === "content_ratings" && detail.data?.[0]?.rating === "TV-MA"), true);
   assert.equal(data.details.some((detail) => detail.key === "last_episode_to_air" && detail.data?.name === "The Iron Throne"), true);
 });

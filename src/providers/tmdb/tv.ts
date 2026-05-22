@@ -244,6 +244,7 @@ export async function transformTmdbTv(
   addNumberArrayDetail(data, "episode_run_time", payload.episode_run_time);
   addArrayDetail(data, "languages", payload.languages);
   addArrayDetail(data, "origin_country", payload.origin_country);
+  addTvCertifications(data, payload);
   addStructuredDetail(data, "production_countries", payload.production_countries);
   addStructuredDetail(data, "spoken_languages", payload.spoken_languages);
   addStructuredDetail(data, "content_ratings", payload.content_ratings?.results);
@@ -514,6 +515,35 @@ function addArrayDetail(data: ZuuidData, key: string, value: string[] | undefine
   if (value?.length) {
     data.details.push({ key, value: value.join(","), data: value, source: TMDB_PROVIDER });
   }
+}
+
+function addTvCertifications(data: ZuuidData, payload: TmdbTvPayload): void {
+  const certifications: Record<string, JsonValue>[] = [];
+
+  for (const item of payload.content_ratings?.results ?? []) {
+    const region = stringField(item.iso_3166_1);
+    const certification = stringField(item.rating);
+    if (!region || !certification) {
+      continue;
+    }
+
+    certifications.push({
+      region,
+      certification,
+      descriptors: item.descriptors ?? []
+    });
+  }
+
+  if (!certifications.length) {
+    return;
+  }
+
+  data.details.push({
+    key: "certifications",
+    value: certifications.map((item) => `${item.region}:${item.certification}`).join(","),
+    data: certifications,
+    source: TMDB_PROVIDER
+  });
 }
 
 function addStructuredDetail(data: ZuuidData, key: string, value: JsonValue | undefined): void {

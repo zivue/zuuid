@@ -59,6 +59,19 @@ export type TmdbMoviePayload = {
   };
   recommendations?: TmdbMovieListResponse;
   similar?: TmdbMovieListResponse;
+  release_dates?: {
+    results?: {
+      iso_3166_1?: string;
+      release_dates?: {
+        certification?: string;
+        descriptors?: string[];
+        iso_639_1?: string;
+        note?: string;
+        release_date?: string;
+        type?: number;
+      }[];
+    }[];
+  };
   belongs_to_collection?: { id?: number; name?: string; poster_path?: string; backdrop_path?: string } | null;
   production_companies?: { id?: number; name?: string; origin_country?: string; logo_path?: string | null }[];
   production_countries?: { iso_3166_1?: string; name?: string }[];
@@ -127,7 +140,7 @@ export async function fetchTmdbMovieSourceRecord(
 
   const payload = await provider.getJson<TmdbMoviePayload>(`/movie/${id}`, {
     language: provider.language,
-    append_to_response: "alternative_titles,credits,external_ids,images,keywords,recommendations,similar,translations"
+    append_to_response: "alternative_titles,credits,external_ids,images,keywords,recommendations,similar,translations,release_dates"
   });
 
   if (!payload) {
@@ -225,7 +238,9 @@ export async function transformTmdbMovie(
   addBooleanDetail(data, "video", payload.video);
   addBooleanDetail(data, "softcore", payload.softcore);
   addArrayDetail(data, "origin_country", payload.origin_country);
+  addMovieCertifications(data, payload);
   addStructuredDetail(data, "production_countries", payload.production_countries);
+  addStructuredDetail(data, "release_dates", payload.release_dates?.results);
   addStructuredDetail(data, "spoken_languages", payload.spoken_languages);
   addStructuredDetail(data, "watch_providers", payload.watch_providers?.results);
 
@@ -517,6 +532,58 @@ function addArrayDetail(data: ZuuidData, key: string, value: string[] | undefine
   }
 
   data.details.push({ key, value: value.join(","), data: value, source: TMDB_PROVIDER });
+}
+
+function addMovieCertifications(data: ZuuidData, payload: TmdbMoviePayload): void {
+  const certifications: Record<string, JsonValue>[] = [];
+
+  for (const country of payload.release_dates?.results ?? []) {
+    const region = stringField(country.iso_3166_1);
+    if (!region) {
+      continue;
+    }
+
+    for (const release of country.release_dates ?? []) {
+      const certification = stringField(release.certification);
+      if (!certification) {
+        continue;
+      }
+
+      const certificationData: Record<string, JsonValue> = {
+        region,
+        certification,
+        descriptors: release.descriptors ?? []
+      };
+      const language = stringField(release.iso_639_1);
+      const note = stringField(release.note);
+      const releaseDate = stringField(release.release_date);
+      if (language) {
+        certificationData.language = language;
+      }
+      if (note) {
+        certificationData.note = note;
+      }
+      if (releaseDate) {
+        certificationData.releaseDate = releaseDate;
+      }
+      if (typeof release.type === "number") {
+        certificationData.type = release.type;
+      }
+
+      certifications.push(certificationData);
+    }
+  }
+
+  if (!certifications.length) {
+    return;
+  }
+
+  data.details.push({
+    key: "certifications",
+    value: certifications.map((item) => `${item.region}:${item.certification}`).join(","),
+    data: certifications,
+    source: TMDB_PROVIDER
+  });
 }
 
 function addStructuredDetail(data: ZuuidData, key: string, value: JsonValue | undefined): void {
