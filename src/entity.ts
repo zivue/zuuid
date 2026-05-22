@@ -39,6 +39,7 @@ export type MediaAsset = {
   width?: number;
   height?: number;
   isPrimary: boolean;
+  data?: JsonValue;
   source?: string;
 };
 
@@ -63,11 +64,13 @@ export type EntityRelation = {
   direction: "outgoing" | "incoming" | "symmetric";
   relatedTitle?: string;
   relatedCategory?: string;
+  relatedImage?: string;
   source?: string;
   externalId?: string;
   attribute?: string;
   confidence?: number;
   order?: number;
+  data?: JsonValue;
 };
 
 export type RecommendationKind = "similar" | "related" | "same_creator" | "same_series" | "same_topic" | string;

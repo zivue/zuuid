@@ -92,9 +92,9 @@ const withSource = attachSourceMetadata(dataset, source);
 
 `attachSourceMetadata` returns a new dataset with `externalIds` and `provenance` updated.
 
-## TMDB Movies
+## TMDB Movies And TV
 
-The first provider module supports fetching and transforming TMDB movies.
+The first provider module supports fetching and transforming TMDB movies and TV shows.
 
 ```ts
 import { TmdbProvider } from "@zivue/zuuid/providers/tmdb";
@@ -104,6 +104,7 @@ const tmdb = new TmdbProvider({
 });
 
 const movie = await tmdb.fetchMovie({ id: 550 });
+const tv = await tmdb.fetchTv({ id: 1399 });
 
 console.log(movie?.zuuid);
 // 1706d641-d381-5618-9425-d8cd8b35f898
@@ -112,19 +113,23 @@ console.log(movie?.zuuid);
 You can also split fetching from transformation:
 
 ```ts
-import { TmdbProvider, transformTmdbMovie } from "@zivue/zuuid/providers/tmdb";
+import { TmdbProvider, transformTmdbMovie, transformTmdbTv } from "@zivue/zuuid/providers/tmdb";
 
 const source = await tmdb.fetchMovieSourceRecord({ id: 550 });
 const movie = source ? await transformTmdbMovie(source) : undefined;
+
+const tvSource = await tmdb.fetchTvSourceRecord({ id: 1399 });
+const tv = tvSource ? await transformTmdbTv(tvSource) : undefined;
 ```
 
 Movie-only imports are also available:
 
 ```ts
 import { transformTmdbMovie } from "@zivue/zuuid/providers/tmdb/movie";
+import { transformTmdbTv } from "@zivue/zuuid/providers/tmdb/tv";
 ```
 
-`TmdbProvider` accepts either `{ bearerToken }` or `{ apiKey }`. Fetching uses `/movie/{id}` with `append_to_response=credits,external_ids,images,keywords`.
+`TmdbProvider` accepts either `{ bearerToken }` or `{ apiKey }`.
 
 ## Client Instantiation
 
@@ -143,12 +148,14 @@ const zuuid = createZuuidClient({
 });
 
 const movie = await zuuid.movie.tmdb?.fetch({ id: 550 });
+const tv = await zuuid.tv.tmdb?.fetch({ id: 1399 });
 ```
 
 The config is provider-keyed because apps usually manage credentials per provider. The client facade is category-first, so multiple movie providers can live under `zuuid.movie`:
 
 ```ts
 zuuid.movie.tmdb?.fetch({ id: 550 });
+zuuid.tv.tmdb?.fetch({ id: 1399 });
 // later: zuuid.movie.omdb?.fetch(...)
 ```
 
@@ -167,6 +174,7 @@ The source is split by Zuuid responsibility:
 - `providers/<provider>/client.ts`: shared provider client/config
 - `providers/<provider>/<category>.ts`: category-specific fetch and transform helpers
 - `providers/tmdb/movie.ts`: TMDB movie fetch and transform helpers
+- `providers/tmdb/tv.ts`: TMDB TV fetch and transform helpers
 - `source.ts`: source records, external IDs, and provenance
 - `hash.ts`: stable payload hashing
 - `uuid.ts`: UUID parsing/normalization and UUID v5 internals
@@ -221,13 +229,19 @@ npm test
 Fetch and transform TMDB movie `550`:
 
 ```sh
-TMDB_BEARER_TOKEN=... npm run example:tmdb -- 550
+TMDB_BEARER_TOKEN=... npm run example:tmdb -- movie 550
 ```
 
 or:
 
 ```sh
-TMDB_API_KEY=... npm run example:tmdb -- 550
+TMDB_API_KEY=... npm run example:tmdb -- movie 550
+```
+
+Fetch and transform TMDB TV show `1399`:
+
+```sh
+TMDB_BEARER_TOKEN=... npm run example:tmdb -- tv 1399
 ```
 
 The example also reads `.env` from the repo root:
@@ -249,4 +263,6 @@ The example writes debug output to:
 ```txt
 data/tmdb/movie/550.raw.json
 data/tmdb/movie/550.zuuid.json
+data/tmdb/tv/1399.raw.json
+data/tmdb/tv/1399.zuuid.json
 ```

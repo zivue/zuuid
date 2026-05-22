@@ -1,5 +1,12 @@
 import type { ZuuidData } from "./entity.js";
-import { TmdbProvider, transformTmdbMovie, type FetchTmdbMovieInput, type TmdbProviderOptions } from "./providers/tmdb/index.js";
+import {
+  TmdbProvider,
+  transformTmdbMovie,
+  transformTmdbTv,
+  type FetchTmdbMovieInput,
+  type FetchTmdbTvInput,
+  type TmdbProviderOptions
+} from "./providers/tmdb/index.js";
 import type { SourceRecord } from "./source.js";
 
 export type ProviderConfigs = {
@@ -20,6 +27,9 @@ export type ZuuidClient = {
   movie: {
     tmdb?: MovieProviderClient<FetchTmdbMovieInput>;
   };
+  tv: {
+    tmdb?: MovieProviderClient<FetchTmdbTvInput>;
+  };
 };
 
 export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
@@ -32,6 +42,15 @@ export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
             fetch: (input: FetchTmdbMovieInput) => tmdb.fetchMovie(input),
             fetchSourceRecord: (input: FetchTmdbMovieInput) => tmdb.fetchMovieSourceRecord(input),
             transform: (source: SourceRecord) => transformTmdbMovie(source, tmdb.transformOptions())
+          })
+        : undefined
+    }),
+    tv: Object.freeze({
+      tmdb: tmdb
+        ? Object.freeze({
+            fetch: (input: FetchTmdbTvInput) => tmdb.fetchTv(input),
+            fetchSourceRecord: (input: FetchTmdbTvInput) => tmdb.fetchTvSourceRecord(input),
+            transform: (source: SourceRecord) => transformTmdbTv(source, tmdb.transformOptions())
           })
         : undefined
     })

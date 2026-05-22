@@ -11,7 +11,8 @@ import {
   providerNamespace,
   providerZuuid,
   TmdbProvider,
-  transformTmdbMovie
+  transformTmdbMovie,
+  transformTmdbTv
 } from "../dist/index.js";
 
 test("providerZuuid matches the Rust provider-stable UUID v5 generation", async () => {
@@ -139,8 +140,8 @@ test("transformTmdbMovie maps rich TMDB movie append payloads", async () => {
       },
       keywords: { keywords: [{ id: 818, name: "based on novel or book" }] },
       credits: {
-        cast: [{ id: 287, name: "Brad Pitt", character: "Tyler Durden", order: 1 }],
-        crew: [{ id: 7467, name: "David Fincher", job: "Director" }]
+        cast: [{ id: 287, name: "Brad Pitt", character: "Tyler Durden", order: 1, profile_path: "/brad.jpg" }],
+        crew: [{ id: 7467, name: "David Fincher", job: "Director", profile_path: "/fincher.jpg" }]
       },
       production_companies: [{ id: 25, name: "20th Century Fox", origin_country: "US" }],
       recommendations: { results: [{ id: 641, title: "Requiem for a Dream", vote_average: 8.0 }] },
@@ -166,7 +167,15 @@ test("transformTmdbMovie maps rich TMDB movie append payloads", async () => {
   assert.equal(data.aliases.some((alias) => alias.value === "El club de la lucha"), true);
   assert.equal(data.descriptions.some((description) => description.language === "es"), true);
   assert.equal(data.tags.includes("based on novel or book"), true);
-  assert.equal(data.relations.some((relation) => relation.relatedTitle === "Brad Pitt" && relation.attribute === "Tyler Durden"), true);
+  assert.equal(
+    data.relations.some(
+      (relation) =>
+        relation.relatedTitle === "Brad Pitt" &&
+        relation.attribute === "Tyler Durden" &&
+        relation.relatedImage?.includes("image.tmdb.org")
+    ),
+    true
+  );
   assert.equal(data.relations.some((relation) => relation.relatedTitle === "David Fincher" && relation.relationType === "directed_by"), true);
   assert.equal(data.relations.some((relation) => relation.relatedTitle === "20th Century Fox" && relation.relatedCategory === "company"), true);
   assert.equal(data.recommendations.some((recommendation) => recommendation.targetTitle === "Requiem for a Dream"), true);
@@ -196,9 +205,150 @@ test("TmdbProvider fetchMovieSourceRecord requests movie details with API key cr
   assert.equal(requestedUrl.searchParams.get("language"), "en-US");
   assert.equal(
     requestedUrl.searchParams.get("append_to_response"),
-    "alternative_titles,credits,external_ids,images,keywords,recommendations,similar,translations,watch_providers"
+    "alternative_titles,credits,external_ids,images,keywords,recommendations,similar,translations"
   );
   assert.deepEqual(source?.source, { provider: "tmdb", category: "movie", externalId: "550" });
+});
+
+test("transformTmdbTv maps a TMDB tv source record into Zuuid data", async () => {
+  const source = await createSourceRecord({
+    source: { provider: "tmdb", category: "tv", externalId: "1399" },
+    payload: {
+      id: 1399,
+      name: "Game of Thrones",
+      original_name: "Game of Thrones",
+      overview: "Seven noble families fight for control.",
+      first_air_date: "2011-04-17",
+      vote_average: 8.5,
+      poster_path: "/tv.jpg",
+      original_language: "en",
+      adult: false,
+      episode_run_time: [60],
+      genres: [{ id: 18, name: "Drama" }],
+      in_production: false,
+      languages: ["en"],
+      last_episode_to_air: { id: 1551830, name: "The Iron Throne", episode_number: 6, season_number: 8 },
+      number_of_seasons: 8,
+      number_of_episodes: 73,
+      production_countries: [{ iso_3166_1: "US", name: "United States of America" }],
+      softcore: false,
+      tagline: "Winter is coming.",
+      external_ids: { imdb_id: "tt0944947", tvdb_id: 121361 },
+      created_by: [{ id: 9813, name: "David Benioff", profile_path: "/benioff.jpg" }],
+      aggregate_credits: {
+        cast: [
+          {
+            id: 22970,
+            name: "Kit Harington",
+            profile_path: "/kit.jpg",
+            roles: [{ character: "Jon Snow", episode_count: 62 }],
+            total_episode_count: 62
+          }
+        ],
+        crew: [
+          {
+            id: 9813,
+            name: "David Benioff",
+            profile_path: "/benioff.jpg",
+            department: "Production",
+            jobs: [{ job: "Executive Producer", episode_count: 73 }],
+            total_episode_count: 73
+          }
+        ]
+      },
+      content_ratings: { results: [{ iso_3166_1: "US", rating: "TV-MA", descriptors: ["violence"] }] },
+      images: {
+        posters: [{ file_path: "/poster-alt.jpg", width: 1000, height: 1500, vote_average: 5.5 }]
+      },
+      seasons: [{ season_number: 1, name: "Season 1", poster_path: "/s1.jpg", episode_count: 10 }]
+    },
+    observedAt: "2026-05-14T09:00:00.000Z"
+  });
+
+  const data = await transformTmdbTv(source);
+
+  assert.equal(data.primaryTitle, "Game of Thrones");
+  assert.equal(data.kind, "watch");
+  assert.equal(data.category, "tvshow");
+  assert.equal(data.primaryDate, "2011-04-17");
+  assert.equal(data.rating, 8.5);
+  assert.equal(data.tags.includes("drama"), true);
+  assert.equal(data.externalIds.some((id) => id.source === "imdb" && id.value === "tt0944947"), true);
+  assert.equal(data.externalIds.some((id) => id.source === "tvdb" && id.value === "121361"), true);
+  assert.equal(
+    data.relations.some(
+      (relation) =>
+        relation.relatedTitle === "David Benioff" &&
+        relation.relationType === "creator" &&
+        relation.relatedImage?.includes("image.tmdb.org")
+    ),
+    true
+  );
+  assert.equal(
+    data.relations.some(
+      (relation) =>
+        relation.relatedTitle === "Kit Harington" &&
+        relation.attribute === "Jon Snow" &&
+        relation.relatedImage?.includes("image.tmdb.org") &&
+        relation.data?.total_episode_count === 62
+    ),
+    true
+  );
+  assert.equal(
+    data.relations.some(
+      (relation) =>
+        relation.relatedTitle === "David Benioff" &&
+        relation.relationType === "produced_by" &&
+        relation.attribute === "Executive Producer" &&
+        relation.data?.total_episode_count === 73
+    ),
+    true
+  );
+  assert.equal(
+    data.relations.some(
+      (relation) =>
+        relation.relatedTitle === "Season 1" &&
+        relation.relatedCategory === "tvseason" &&
+        relation.data?.episode_count === 10
+    ),
+    true
+  );
+  assert.equal(data.cover?.includes("image.tmdb.org"), true);
+  assert.equal(data.media.some((media) => media.mediaCategory === "poster" && media.data?.width === 1000), true);
+  assert.equal(data.details.some((detail) => detail.key === "tagline" && detail.value === "Winter is coming."), true);
+  assert.equal(data.details.some((detail) => detail.key === "adult" && detail.value === "false"), true);
+  assert.equal(data.details.some((detail) => detail.key === "in_production" && detail.value === "false"), true);
+  assert.equal(data.details.some((detail) => detail.key === "softcore" && detail.value === "false"), true);
+  assert.equal(data.details.some((detail) => detail.key === "episode_run_time" && detail.data?.[0] === 60), true);
+  assert.equal(data.details.some((detail) => detail.key === "languages" && detail.data?.[0] === "en"), true);
+  assert.equal(data.details.some((detail) => detail.key === "production_countries" && detail.data?.[0]?.iso_3166_1 === "US"), true);
+  assert.equal(data.details.some((detail) => detail.key === "content_ratings" && detail.data?.[0]?.rating === "TV-MA"), true);
+  assert.equal(data.details.some((detail) => detail.key === "last_episode_to_air" && detail.data?.name === "The Iron Throne"), true);
+});
+
+test("TmdbProvider fetchTvSourceRecord requests tv details with API key credentials", async () => {
+  let requestedUrl;
+  const provider = new TmdbProvider({
+    apiKey: "test-key",
+    fetch: async (url) => {
+      requestedUrl = new URL(url.toString());
+      return new Response(JSON.stringify({ id: 1399, name: "Game of Thrones" }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+  });
+
+  const source = await provider.fetchTvSourceRecord({ id: 1399 });
+
+  assert.equal(requestedUrl.pathname, "/3/tv/1399");
+  assert.equal(requestedUrl.searchParams.get("api_key"), "test-key");
+  assert.equal(requestedUrl.searchParams.get("language"), "en-US");
+  assert.equal(
+    requestedUrl.searchParams.get("append_to_response"),
+    "aggregate_credits,external_ids,images,keywords,recommendations,similar,translations,content_ratings"
+  );
+  assert.deepEqual(source?.source, { provider: "tmdb", category: "tv", externalId: "1399" });
 });
 
 test("createZuuidClient exposes a category-first provider facade", async () => {
@@ -224,4 +374,29 @@ test("createZuuidClient exposes a category-first provider facade", async () => {
   assert.equal(requestedUrl.init.headers.get("authorization"), "Bearer test-token");
   assert.deepEqual(source?.source, { provider: "tmdb", category: "movie", externalId: "550" });
   assert.equal(createZuuidClient().movie.tmdb, undefined);
+  assert.equal(createZuuidClient().tv.tmdb, undefined);
+});
+
+test("createZuuidClient exposes tmdb tv facade", async () => {
+  let requestedUrl;
+  const client = createZuuidClient({
+    providers: {
+      tmdb: {
+        bearerToken: "test-token",
+        fetch: async (url, init) => {
+          requestedUrl = { url: new URL(url.toString()), init };
+          return new Response(JSON.stringify({ id: 1399, name: "Game of Thrones" }), {
+            status: 200,
+            headers: { "content-type": "application/json" }
+          });
+        }
+      }
+    }
+  });
+
+  const source = await client.tv.tmdb?.fetchSourceRecord({ id: 1399 });
+
+  assert.equal(requestedUrl.url.pathname, "/3/tv/1399");
+  assert.equal(requestedUrl.init.headers.get("authorization"), "Bearer test-token");
+  assert.deepEqual(source?.source, { provider: "tmdb", category: "tv", externalId: "1399" });
 });

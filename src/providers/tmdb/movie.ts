@@ -127,7 +127,7 @@ export async function fetchTmdbMovieSourceRecord(
 
   const payload = await provider.getJson<TmdbMoviePayload>(`/movie/${id}`, {
     language: provider.language,
-    append_to_response: "alternative_titles,credits,external_ids,images,keywords,recommendations,similar,translations,watch_providers"
+    append_to_response: "alternative_titles,credits,external_ids,images,keywords,recommendations,similar,translations"
   });
 
   if (!payload) {
@@ -378,6 +378,7 @@ async function addCredits(data: ZuuidData, payload: TmdbMoviePayload): Promise<v
       direction: "outgoing",
       relatedTitle: name,
       relatedCategory: "person",
+      relatedImage: mediaUrl(cast.profile_path ?? undefined, TMDB_POSTER_BASE_URL),
       source: TMDB_PROVIDER,
       externalId: id,
       attribute: stringField(cast.character),
@@ -398,6 +399,7 @@ async function addCredits(data: ZuuidData, payload: TmdbMoviePayload): Promise<v
       direction: "outgoing",
       relatedTitle: name,
       relatedCategory: "person",
+      relatedImage: mediaUrl(crew.profile_path ?? undefined, TMDB_POSTER_BASE_URL),
       source: TMDB_PROVIDER,
       externalId: id,
       attribute: job

@@ -1,9 +1,10 @@
-import { TmdbProvider, transformTmdbMovie } from "../dist/providers/tmdb/index.js";
+import { TmdbProvider, transformTmdbMovie, transformTmdbTv } from "../dist/providers/tmdb/index.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 loadDotEnv();
 
-const movieId = process.argv[2] ?? "550";
+const category = process.argv[2] ?? "movie";
+const id = process.argv[3] ?? (category === "tv" ? "1399" : "550");
 const configuredBearerToken = cleanEnvValue(process.env.TMDB_BEARER_TOKEN ?? process.env.TMDB_READ_ACCESS_TOKEN);
 const configuredApiKey = cleanEnvValue(process.env.TMDB_API_KEY);
 const apiKeyLooksLikeBearerToken = configuredApiKey?.startsWith("eyJ") ?? false;
@@ -12,7 +13,8 @@ const apiKey = apiKeyLooksLikeBearerToken ? undefined : configuredApiKey;
 
 if (!bearerToken && !apiKey) {
   console.error("Set TMDB_BEARER_TOKEN, TMDB_READ_ACCESS_TOKEN, or TMDB_API_KEY before running this example.");
-  console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:tmdb -- 550");
+  console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:tmdb -- movie 550");
+  console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:tmdb -- tv 1399");
   process.exit(1);
 }
 
@@ -22,11 +24,18 @@ if (apiKeyLooksLikeBearerToken) {
   console.error("TMDB_API_KEY looks like an API Read Access Token, so it is being sent as a bearer token.");
 }
 
-let movie;
+let transformed;
 let source;
 try {
-  source = await tmdb.fetchMovieSourceRecord({ id: movieId });
-  movie = source ? await transformTmdbMovie(source, tmdb.transformOptions()) : undefined;
+  if (category === "movie") {
+    source = await tmdb.fetchMovieSourceRecord({ id });
+    transformed = source ? await transformTmdbMovie(source, tmdb.transformOptions()) : undefined;
+  } else if (category === "tv") {
+    source = await tmdb.fetchTvSourceRecord({ id });
+    transformed = source ? await transformTmdbTv(source, tmdb.transformOptions()) : undefined;
+  } else {
+    throw new Error(`Unsupported TMDB example category: ${category}`);
+  }
 } catch (error) {
   if (error instanceof Error && error.message.includes("TMDB API returned 401")) {
     console.error(error.message);
@@ -41,16 +50,16 @@ try {
   throw error;
 }
 
-if (!movie) {
-  console.error(`TMDB movie was not found: ${movieId}`);
+if (!transformed) {
+  console.error(`TMDB ${category} was not found: ${id}`);
   process.exit(1);
 }
 
-writeDebugJson(movieId, source, movie);
-console.log(JSON.stringify(movie, null, 2));
+writeDebugJson(category, id, source, transformed);
+console.log(JSON.stringify(transformed, null, 2));
 
-function writeDebugJson(id, sourceRecord, transformed) {
-  const directory = "data/tmdb/movie";
+function writeDebugJson(category, id, sourceRecord, transformed) {
+  const directory = `data/tmdb/${category}`;
   mkdirSync(directory, { recursive: true });
 
   if (sourceRecord) {

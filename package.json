@@ -37,6 +37,10 @@
     "./providers/tmdb/movie": {
       "types": "./dist/providers/tmdb/movie.d.ts",
       "import": "./dist/providers/tmdb/movie.js"
+    },
+    "./providers/tmdb/tv": {
+      "types": "./dist/providers/tmdb/tv.d.ts",
+      "import": "./dist/providers/tmdb/tv.js"
     }
   },
   "types": "./dist/index.d.ts",
