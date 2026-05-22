@@ -1,9 +1,9 @@
-import type { ZuuidData } from "../../entity.js";
+import type { SearchResponse, ZuuidData, ZuuidSearchResult } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
 import { TMDB_API_BASE, TMDB_BACKDROP_BASE_URL, TMDB_POSTER_BASE_URL } from "./constants.js";
-import { fetchTmdbMovieSourceRecord, searchTmdbMovieSourceRecords, type FetchTmdbMovieInput, transformTmdbMovie } from "./movie.js";
-import { fetchTmdbPersonSourceRecord, searchTmdbPersonSourceRecords, type FetchTmdbPersonInput, transformTmdbPerson } from "./person.js";
-import { fetchTmdbTvSourceRecord, searchTmdbTvSourceRecords, type FetchTmdbTvInput, transformTmdbTv } from "./tv.js";
+import { fetchTmdbMovieSourceRecord, searchTmdbMovieSourceRecords, searchTmdbMovies, type FetchTmdbMovieInput, transformTmdbMovie } from "./movie.js";
+import { fetchTmdbPersonSourceRecord, searchTmdbPeople, searchTmdbPersonSourceRecords, type FetchTmdbPersonInput, transformTmdbPerson } from "./person.js";
+import { fetchTmdbTvSourceRecord, searchTmdbTv, searchTmdbTvSourceRecords, type FetchTmdbTvInput, transformTmdbTv } from "./tv.js";
 import type { FetchLike, TmdbCredential, TmdbProviderOptions, TmdbSearchInput, TmdbTransformOptions } from "./types.js";
 
 export class TmdbProvider {
@@ -63,8 +63,12 @@ export class TmdbProvider {
     return source ? transformTmdbMovie(source, this.transformOptions()) : undefined;
   }
 
-  async searchMovieSourceRecords(input: TmdbSearchInput): Promise<SourceRecord[]> {
+  async searchMovieSourceRecords(input: TmdbSearchInput): Promise<SearchResponse<SourceRecord>> {
     return searchTmdbMovieSourceRecords(this, input);
+  }
+
+  async searchMovies(input: TmdbSearchInput): Promise<SearchResponse<ZuuidSearchResult>> {
+    return searchTmdbMovies(this, input, this.transformOptions());
   }
 
   async fetchTvSourceRecord(input: FetchTmdbTvInput): Promise<SourceRecord | undefined> {
@@ -76,8 +80,12 @@ export class TmdbProvider {
     return source ? transformTmdbTv(source, this.transformOptions()) : undefined;
   }
 
-  async searchTvSourceRecords(input: TmdbSearchInput): Promise<SourceRecord[]> {
+  async searchTvSourceRecords(input: TmdbSearchInput): Promise<SearchResponse<SourceRecord>> {
     return searchTmdbTvSourceRecords(this, input);
+  }
+
+  async searchTv(input: TmdbSearchInput): Promise<SearchResponse<ZuuidSearchResult>> {
+    return searchTmdbTv(this, input, this.transformOptions());
   }
 
   async fetchPersonSourceRecord(input: FetchTmdbPersonInput): Promise<SourceRecord | undefined> {
@@ -89,8 +97,12 @@ export class TmdbProvider {
     return source ? transformTmdbPerson(source, this.transformOptions()) : undefined;
   }
 
-  async searchPersonSourceRecords(input: TmdbSearchInput): Promise<SourceRecord[]> {
+  async searchPersonSourceRecords(input: TmdbSearchInput): Promise<SearchResponse<SourceRecord>> {
     return searchTmdbPersonSourceRecords(this, input);
+  }
+
+  async searchPeople(input: TmdbSearchInput): Promise<SearchResponse<ZuuidSearchResult>> {
+    return searchTmdbPeople(this, input, this.transformOptions());
   }
 
   transformOptions(): TmdbTransformOptions {

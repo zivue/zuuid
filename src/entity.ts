@@ -106,6 +106,30 @@ export type ZuuidData = {
   provenance: Provenance[];
 };
 
+export type ZuuidSearchResult = {
+  zuuid: string;
+  kind: EntityKind;
+  category: string;
+  primaryTitle: string;
+  primaryDate?: string;
+  rating?: number;
+  cover?: string;
+  description?: string;
+  score?: number;
+  source: ExternalId;
+};
+
+export type SearchPagination = {
+  page: number;
+  totalPages: number;
+  totalResults: number;
+};
+
+export type SearchResponse<T> = {
+  results: T[];
+  pagination: SearchPagination;
+};
+
 export type CreateZuuidDataInput = {
   zuuid: string;
   category: string;

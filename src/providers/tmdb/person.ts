@@ -1,4 +1,4 @@
-import { createZuuidData, type ZuuidData } from "../../entity.js";
+import { categoryFor, createZuuidData, type SearchResponse, type ZuuidData, type ZuuidSearchResult } from "../../entity.js";
 import { providerZuuid } from "../../identity.js";
 import { attachSourceMetadata, createSourceRecord, type SourceRecord } from "../../source.js";
 import type { JsonValue } from "../../types.js";
@@ -116,14 +116,61 @@ export async function fetchTmdbPersonSourceRecord(
 export async function searchTmdbPersonSourceRecords(
   provider: TmdbProvider,
   input: TmdbSearchInput
-): Promise<SourceRecord[]> {
+): Promise<SearchResponse<SourceRecord>> {
+  const payload = await fetchTmdbPersonSearchResults(provider, input);
+  return {
+    results: await sourceRecordsFromSearchResults(TMDB_PERSON_CATEGORY, payload.results),
+    pagination: paginationFromTmdbSearchResponse(payload)
+  };
+}
+
+export async function searchTmdbPeople(
+  provider: TmdbProvider,
+  input: TmdbSearchInput,
+  options: TmdbTransformOptions = {}
+): Promise<SearchResponse<ZuuidSearchResult>> {
+  const payload = await fetchTmdbPersonSearchResults(provider, input);
+  const searchResults: ZuuidSearchResult[] = [];
+
+  for (const result of payload.results ?? []) {
+    if (!result.id) {
+      continue;
+    }
+    const externalId = String(result.id);
+    const title = stringField(result.name) ?? stringField(result.original_name);
+    if (!title) {
+      continue;
+    }
+    const category = categoryFor(ZUUID_PERSON_CATEGORY);
+    searchResults.push({
+      zuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: TMDB_PERSON_CATEGORY, externalId }),
+      kind: category.kind,
+      category: category.category,
+      primaryTitle: title,
+      cover: mediaUrl(result.profile_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL),
+      description: stringField(result.known_for_department),
+      score: typeof result.popularity === "number" ? result.popularity : undefined,
+      source: { source: TMDB_PROVIDER, category: TMDB_PERSON_CATEGORY, value: externalId }
+    });
+  }
+
+  return {
+    results: searchResults,
+    pagination: paginationFromTmdbSearchResponse(payload)
+  };
+}
+
+async function fetchTmdbPersonSearchResults(
+  provider: TmdbProvider,
+  input: TmdbSearchInput
+): Promise<TmdbSearchResponse<TmdbPersonSearchResult>> {
   const query = searchQuery(input.query, "TMDB person search query");
   const payload = await provider.getJson<TmdbSearchResponse<TmdbPersonSearchResult>>("/search/person", {
     ...searchParams(provider, input),
     query
   });
 
-  return sourceRecordsFromSearchResults(TMDB_PERSON_CATEGORY, payload?.results);
+  return payload ?? {};
 }
 
 export async function transformTmdbPerson(
@@ -439,4 +486,12 @@ async function sourceRecordsFromSearchResults(
     );
   }
   return records;
+}
+
+function paginationFromTmdbSearchResponse<T>(payload: TmdbSearchResponse<T>): SearchResponse<T>["pagination"] {
+  return {
+    page: payload.page ?? 1,
+    totalPages: payload.total_pages ?? 0,
+    totalResults: payload.total_results ?? 0
+  };
 }

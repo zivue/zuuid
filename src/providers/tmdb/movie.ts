@@ -1,4 +1,4 @@
-import { createZuuidData, type ZuuidData } from "../../entity.js";
+import { categoryFor, createZuuidData, type SearchResponse, type ZuuidData, type ZuuidSearchResult } from "../../entity.js";
 import { providerZuuid } from "../../identity.js";
 import { attachSourceMetadata, createSourceRecord, type SourceRecord } from "../../source.js";
 import type { JsonValue } from "../../types.js";
@@ -167,7 +167,56 @@ export async function fetchTmdbMovieSourceRecord(
 export async function searchTmdbMovieSourceRecords(
   provider: TmdbProvider,
   input: TmdbSearchInput
-): Promise<SourceRecord[]> {
+): Promise<SearchResponse<SourceRecord>> {
+  const payload = await fetchTmdbMovieSearchResults(provider, input);
+  return {
+    results: await sourceRecordsFromSearchResults(TMDB_MOVIE_CATEGORY, payload.results),
+    pagination: paginationFromTmdbSearchResponse(payload)
+  };
+}
+
+export async function searchTmdbMovies(
+  provider: TmdbProvider,
+  input: TmdbSearchInput,
+  options: TmdbTransformOptions = {}
+): Promise<SearchResponse<ZuuidSearchResult>> {
+  const payload = await fetchTmdbMovieSearchResults(provider, input);
+  const searchResults: ZuuidSearchResult[] = [];
+
+  for (const result of payload.results ?? []) {
+    if (!result.id) {
+      continue;
+    }
+    const externalId = String(result.id);
+    const title = stringField(result.title) ?? stringField(result.original_title);
+    if (!title) {
+      continue;
+    }
+    const category = categoryFor(TMDB_MOVIE_CATEGORY);
+    searchResults.push({
+      zuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: TMDB_MOVIE_CATEGORY, externalId }),
+      kind: category.kind,
+      category: category.category,
+      primaryTitle: title,
+      primaryDate: stringField(result.release_date),
+      rating: typeof result.vote_average === "number" ? result.vote_average : undefined,
+      cover: mediaUrl(result.poster_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL),
+      description: stringField(result.overview),
+      score: typeof result.popularity === "number" ? result.popularity : undefined,
+      source: { source: TMDB_PROVIDER, category: TMDB_MOVIE_CATEGORY, value: externalId }
+    });
+  }
+
+  return {
+    results: searchResults,
+    pagination: paginationFromTmdbSearchResponse(payload)
+  };
+}
+
+async function fetchTmdbMovieSearchResults(
+  provider: TmdbProvider,
+  input: TmdbSearchInput
+): Promise<TmdbSearchResponse<TmdbMovieSearchResult>> {
   const query = searchQuery(input.query, "TMDB movie search query");
   const payload = await provider.getJson<TmdbSearchResponse<TmdbMovieSearchResult>>("/search/movie", {
     ...searchParams(provider, input),
@@ -177,7 +226,7 @@ export async function searchTmdbMovieSourceRecords(
     ...(input.primaryReleaseYear !== undefined ? { primary_release_year: String(input.primaryReleaseYear) } : {})
   });
 
-  return sourceRecordsFromSearchResults(TMDB_MOVIE_CATEGORY, payload?.results);
+  return payload ?? {};
 }
 
 export async function transformTmdbMovie(
@@ -675,4 +724,12 @@ async function sourceRecordsFromSearchResults(
     );
   }
   return records;
+}
+
+function paginationFromTmdbSearchResponse<T>(payload: TmdbSearchResponse<T>): SearchResponse<T>["pagination"] {
+  return {
+    page: payload.page ?? 1,
+    totalPages: payload.total_pages ?? 0,
+    totalResults: payload.total_results ?? 0
+  };
 }

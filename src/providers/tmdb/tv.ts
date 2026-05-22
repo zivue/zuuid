@@ -1,4 +1,4 @@
-import { createZuuidData, type ZuuidData } from "../../entity.js";
+import { categoryFor, createZuuidData, type SearchResponse, type ZuuidData, type ZuuidSearchResult } from "../../entity.js";
 import { providerZuuid } from "../../identity.js";
 import { attachSourceMetadata, createSourceRecord, type SourceRecord } from "../../source.js";
 import type { JsonValue } from "../../types.js";
@@ -171,7 +171,56 @@ export async function fetchTmdbTvSourceRecord(
 export async function searchTmdbTvSourceRecords(
   provider: TmdbProvider,
   input: TmdbSearchInput
-): Promise<SourceRecord[]> {
+): Promise<SearchResponse<SourceRecord>> {
+  const payload = await fetchTmdbTvSearchResults(provider, input);
+  return {
+    results: await sourceRecordsFromSearchResults(TMDB_TV_CATEGORY, payload.results),
+    pagination: paginationFromTmdbSearchResponse(payload)
+  };
+}
+
+export async function searchTmdbTv(
+  provider: TmdbProvider,
+  input: TmdbSearchInput,
+  options: TmdbTransformOptions = {}
+): Promise<SearchResponse<ZuuidSearchResult>> {
+  const payload = await fetchTmdbTvSearchResults(provider, input);
+  const searchResults: ZuuidSearchResult[] = [];
+
+  for (const result of payload.results ?? []) {
+    if (!result.id) {
+      continue;
+    }
+    const externalId = String(result.id);
+    const title = stringField(result.name) ?? stringField(result.original_name);
+    if (!title) {
+      continue;
+    }
+    const category = categoryFor(ZUUID_TV_CATEGORY);
+    searchResults.push({
+      zuuid: await providerZuuid({ provider: TMDB_PROVIDER, category: TMDB_TV_CATEGORY, externalId }),
+      kind: category.kind,
+      category: category.category,
+      primaryTitle: title,
+      primaryDate: stringField(result.first_air_date),
+      rating: typeof result.vote_average === "number" ? result.vote_average : undefined,
+      cover: mediaUrl(result.poster_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL),
+      description: stringField(result.overview),
+      score: typeof result.popularity === "number" ? result.popularity : undefined,
+      source: { source: TMDB_PROVIDER, category: TMDB_TV_CATEGORY, value: externalId }
+    });
+  }
+
+  return {
+    results: searchResults,
+    pagination: paginationFromTmdbSearchResponse(payload)
+  };
+}
+
+async function fetchTmdbTvSearchResults(
+  provider: TmdbProvider,
+  input: TmdbSearchInput
+): Promise<TmdbSearchResponse<TmdbTvSearchResult>> {
   const query = searchQuery(input.query, "TMDB tv search query");
   const payload = await provider.getJson<TmdbSearchResponse<TmdbTvSearchResult>>("/search/tv", {
     ...searchParams(provider, input),
@@ -179,7 +228,7 @@ export async function searchTmdbTvSourceRecords(
     ...(input.firstAirDateYear !== undefined ? { first_air_date_year: String(input.firstAirDateYear) } : {})
   });
 
-  return sourceRecordsFromSearchResults(TMDB_TV_CATEGORY, payload?.results);
+  return payload ?? {};
 }
 
 export async function transformTmdbTv(
@@ -655,4 +704,12 @@ async function sourceRecordsFromSearchResults(
     );
   }
   return records;
+}
+
+function paginationFromTmdbSearchResponse<T>(payload: TmdbSearchResponse<T>): SearchResponse<T>["pagination"] {
+  return {
+    page: payload.page ?? 1,
+    totalPages: payload.total_pages ?? 0,
+    totalResults: payload.total_results ?? 0
+  };
 }

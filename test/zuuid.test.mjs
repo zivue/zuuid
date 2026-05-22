@@ -489,16 +489,86 @@ test("TmdbProvider searches movie, tv, and person source records", async () => {
   assert.equal(requestedUrls[0].searchParams.get("include_adult"), "true");
   assert.equal(requestedUrls[0].searchParams.get("primary_release_year"), "1999");
   assert.equal(requestedUrls[0].searchParams.get("api_key"), "test-key");
-  assert.deepEqual(movies[0]?.source, { provider: "tmdb", category: "movie", externalId: "550" });
+  assert.deepEqual(movies.results[0]?.source, { provider: "tmdb", category: "movie", externalId: "550" });
+  assert.deepEqual(movies.pagination, { page: 1, totalPages: 1, totalResults: 1 });
 
   assert.equal(requestedUrls[1].pathname, "/3/search/tv");
   assert.equal(requestedUrls[1].searchParams.get("query"), "game");
   assert.equal(requestedUrls[1].searchParams.get("first_air_date_year"), "2011");
-  assert.deepEqual(tv[0]?.source, { provider: "tmdb", category: "tv", externalId: "1399" });
+  assert.deepEqual(tv.results[0]?.source, { provider: "tmdb", category: "tv", externalId: "1399" });
+  assert.deepEqual(tv.pagination, { page: 1, totalPages: 1, totalResults: 1 });
 
   assert.equal(requestedUrls[2].pathname, "/3/search/person");
   assert.equal(requestedUrls[2].searchParams.get("query"), "brad");
-  assert.deepEqual(people[0]?.source, { provider: "tmdb", category: "person", externalId: "287" });
+  assert.deepEqual(people.results[0]?.source, { provider: "tmdb", category: "person", externalId: "287" });
+  assert.deepEqual(people.pagination, { page: 1, totalPages: 1, totalResults: 1 });
+});
+
+test("TmdbProvider searches unified movie, tv, and people results", async () => {
+  const provider = new TmdbProvider({
+    apiKey: "test-key",
+    fetch: async (url) => {
+      const requestedUrl = new URL(url.toString());
+      const result =
+        requestedUrl.pathname === "/3/search/movie"
+          ? {
+              id: 550,
+              title: "Fight Club",
+              release_date: "1999-10-15",
+              poster_path: "/fight.jpg",
+              overview: "A soap salesman.",
+              vote_average: 8.4,
+              popularity: 20
+            }
+          : requestedUrl.pathname === "/3/search/tv"
+            ? {
+                id: 1399,
+                name: "Game of Thrones",
+                first_air_date: "2011-04-17",
+                poster_path: "/got.jpg",
+                overview: "Seven noble families.",
+                vote_average: 8.5,
+                popularity: 30
+              }
+            : {
+                id: 287,
+                name: "Brad Pitt",
+                profile_path: "/brad.jpg",
+                known_for_department: "Acting",
+                popularity: 40
+              };
+      return new Response(JSON.stringify({ page: 1, results: [result], total_pages: 1, total_results: 1 }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+  });
+
+  const movies = await provider.searchMovies({ query: "fight" });
+  const tv = await provider.searchTv({ query: "game" });
+  const people = await provider.searchPeople({ query: "brad" });
+
+  assert.equal(movies.results[0]?.primaryTitle, "Fight Club");
+  assert.equal(movies.results[0]?.category, "movie");
+  assert.equal(movies.results[0]?.kind, "watch");
+  assert.equal(movies.results[0]?.primaryDate, "1999-10-15");
+  assert.equal(movies.results[0]?.rating, 8.4);
+  assert.equal(movies.results[0]?.cover?.includes("image.tmdb.org"), true);
+  assert.deepEqual(movies.results[0]?.source, { source: "tmdb", category: "movie", value: "550" });
+  assert.deepEqual(movies.pagination, { page: 1, totalPages: 1, totalResults: 1 });
+
+  assert.equal(tv.results[0]?.primaryTitle, "Game of Thrones");
+  assert.equal(tv.results[0]?.category, "tvshow");
+  assert.equal(tv.results[0]?.kind, "watch");
+  assert.deepEqual(tv.results[0]?.source, { source: "tmdb", category: "tv", value: "1399" });
+  assert.deepEqual(tv.pagination, { page: 1, totalPages: 1, totalResults: 1 });
+
+  assert.equal(people.results[0]?.primaryTitle, "Brad Pitt");
+  assert.equal(people.results[0]?.category, "person");
+  assert.equal(people.results[0]?.kind, "people");
+  assert.equal(people.results[0]?.description, "Acting");
+  assert.deepEqual(people.results[0]?.source, { source: "tmdb", category: "person", value: "287" });
+  assert.deepEqual(people.pagination, { page: 1, totalPages: 1, totalResults: 1 });
 });
 
 test("createZuuidClient exposes a category-first provider facade", async () => {
@@ -599,4 +669,33 @@ test("createZuuidClient exposes category search facades", async () => {
   await client.people.tmdb?.search({ query: "person" });
 
   assert.deepEqual(requestedPaths, ["/3/search/movie", "/3/search/tv", "/3/search/person"]);
+});
+
+test("createZuuidClient exposes raw category search source record facades", async () => {
+  const requestedPaths = [];
+  const client = createZuuidClient({
+    providers: {
+      tmdb: {
+        apiKey: "test-key",
+        fetch: async (url) => {
+          const requestedUrl = new URL(url.toString());
+          requestedPaths.push(requestedUrl.pathname);
+          return new Response(JSON.stringify({ results: [{ id: 1, title: "Result", name: "Result" }] }), {
+            status: 200,
+            headers: { "content-type": "application/json" }
+          });
+        }
+      }
+    }
+  });
+
+  const movies = await client.movie.tmdb?.searchSourceRecords({ query: "movie" });
+  const tv = await client.tv.tmdb?.searchSourceRecords({ query: "tv" });
+  const people = await client.people.tmdb?.searchSourceRecords({ query: "person" });
+
+  assert.deepEqual(requestedPaths, ["/3/search/movie", "/3/search/tv", "/3/search/person"]);
+  assert.deepEqual(movies?.results[0]?.source, { provider: "tmdb", category: "movie", externalId: "1" });
+  assert.deepEqual(tv?.results[0]?.source, { provider: "tmdb", category: "tv", externalId: "1" });
+  assert.deepEqual(people?.results[0]?.source, { provider: "tmdb", category: "person", externalId: "1" });
+  assert.deepEqual(movies?.pagination, { page: 1, totalPages: 0, totalResults: 0 });
 });

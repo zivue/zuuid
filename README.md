@@ -126,15 +126,24 @@ const personSource = await tmdb.fetchPersonSourceRecord({ id: 287 });
 const person = personSource ? await transformTmdbPerson(personSource) : undefined;
 ```
 
-Search returns lightweight source records from TMDB's search endpoints. Use search to find candidate IDs, then fetch the selected item for the full transformed dataset:
+Search returns unified lightweight candidates. Use search to find candidate IDs, then fetch the selected item for the full transformed dataset:
 
 ```ts
-const movies = await tmdb.searchMovieSourceRecords({ query: "Fight Club" });
-const tvShows = await tmdb.searchTvSourceRecords({ query: "Game of Thrones" });
-const people = await tmdb.searchPersonSourceRecords({ query: "Brad Pitt" });
+const movies = await tmdb.searchMovies({ query: "Fight Club" });
+const tvShows = await tmdb.searchTv({ query: "Game of Thrones" });
+const people = await tmdb.searchPeople({ query: "Brad Pitt" });
 
-const selectedMovie = movies[0];
-const fullMovie = selectedMovie ? await tmdb.fetchMovie({ id: selectedMovie.source.externalId }) : undefined;
+console.log(movies.pagination);
+// { page: 1, totalPages: 10, totalResults: 190 }
+
+const selectedMovie = movies.results[0];
+const fullMovie = selectedMovie ? await tmdb.fetchMovie({ id: selectedMovie.source.value }) : undefined;
+```
+
+Raw search source records are also available:
+
+```ts
+const rawMovies = await tmdb.searchMovieSourceRecords({ query: "Fight Club" });
 ```
 
 Category-specific imports are also available:
@@ -281,6 +290,14 @@ Fetch and transform TMDB person `287`:
 TMDB_BEARER_TOKEN=... npm run example:tmdb -- people 287
 ```
 
+Search TMDB and print unified search results:
+
+```sh
+npm run example:tmdb-search -- movie "Fight Club"
+npm run example:tmdb-search -- tv "Game of Thrones"
+npm run example:tmdb-search -- people "Brad Pitt"
+```
+
 The example also reads `.env` from the repo root:
 
 ```sh
@@ -304,4 +321,6 @@ data/tmdb/tv/1399.raw.json
 data/tmdb/tv/1399.zuuid.json
 data/tmdb/people/287.raw.json
 data/tmdb/people/287.zuuid.json
+data/tmdb/search/movie/fight-club.zuuid-search.json
+data/tmdb/search/movie/fight-club.raw-search.json
 ```
