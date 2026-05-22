@@ -126,6 +126,17 @@ const personSource = await tmdb.fetchPersonSourceRecord({ id: 287 });
 const person = personSource ? await transformTmdbPerson(personSource) : undefined;
 ```
 
+Search returns lightweight source records from TMDB's search endpoints. Use search to find candidate IDs, then fetch the selected item for the full transformed dataset:
+
+```ts
+const movies = await tmdb.searchMovieSourceRecords({ query: "Fight Club" });
+const tvShows = await tmdb.searchTvSourceRecords({ query: "Game of Thrones" });
+const people = await tmdb.searchPersonSourceRecords({ query: "Brad Pitt" });
+
+const selectedMovie = movies[0];
+const fullMovie = selectedMovie ? await tmdb.fetchMovie({ id: selectedMovie.source.externalId }) : undefined;
+```
+
 Category-specific imports are also available:
 
 ```ts
@@ -163,6 +174,10 @@ The config is provider-keyed because apps usually manage credentials per provide
 zuuid.movie.tmdb?.fetch({ id: 550 });
 zuuid.tv.tmdb?.fetch({ id: 1399 });
 zuuid.people.tmdb?.fetch({ id: 287 });
+
+zuuid.movie.tmdb?.search({ query: "Fight Club" });
+zuuid.tv.tmdb?.search({ query: "Game of Thrones" });
+zuuid.people.tmdb?.search({ query: "Brad Pitt" });
 // later: zuuid.movie.omdb?.fetch(...)
 ```
 

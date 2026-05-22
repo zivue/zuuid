@@ -16,3 +16,21 @@ export type TmdbTransformOptions = {
   posterBaseUrl?: string | null;
   backdropBaseUrl?: string | null;
 };
+
+export type TmdbSearchInput = {
+  query: string;
+  page?: number;
+  includeAdult?: boolean;
+  language?: string;
+  region?: string;
+  year?: number;
+  primaryReleaseYear?: number;
+  firstAirDateYear?: number;
+};
+
+export type TmdbSearchResponse<T> = {
+  page?: number;
+  results?: T[];
+  total_pages?: number;
+  total_results?: number;
+};

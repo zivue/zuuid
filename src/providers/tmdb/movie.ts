@@ -4,7 +4,7 @@ import { attachSourceMetadata, createSourceRecord, type SourceRecord } from "../
 import type { JsonValue } from "../../types.js";
 import { TMDB_BACKDROP_BASE_URL, TMDB_POSTER_BASE_URL, TMDB_PROVIDER } from "./constants.js";
 import type { TmdbProvider } from "./client.js";
-import type { TmdbTransformOptions } from "./types.js";
+import type { TmdbSearchInput, TmdbSearchResponse, TmdbTransformOptions } from "./types.js";
 
 export const TMDB_MOVIE_CATEGORY = "movie";
 
@@ -117,6 +117,17 @@ export type TmdbMovieListResponse = {
   results?: TmdbRelatedMovie[];
 };
 
+export type TmdbMovieSearchResult = TmdbRelatedMovie & {
+  overview?: string;
+  backdrop_path?: string | null;
+  genre_ids?: number[];
+  original_language?: string;
+  popularity?: number;
+  vote_count?: number;
+  adult?: boolean;
+  video?: boolean;
+};
+
 export type TmdbRelatedMovie = {
   id?: number;
   title?: string;
@@ -151,6 +162,22 @@ export async function fetchTmdbMovieSourceRecord(
     source: { provider: TMDB_PROVIDER, category: TMDB_MOVIE_CATEGORY, externalId: id },
     payload: payload as JsonValue
   });
+}
+
+export async function searchTmdbMovieSourceRecords(
+  provider: TmdbProvider,
+  input: TmdbSearchInput
+): Promise<SourceRecord[]> {
+  const query = searchQuery(input.query, "TMDB movie search query");
+  const payload = await provider.getJson<TmdbSearchResponse<TmdbMovieSearchResult>>("/search/movie", {
+    ...searchParams(provider, input),
+    query,
+    ...(input.region ? { region: input.region } : {}),
+    ...(input.year !== undefined ? { year: String(input.year) } : {}),
+    ...(input.primaryReleaseYear !== undefined ? { primary_release_year: String(input.primaryReleaseYear) } : {})
+  });
+
+  return sourceRecordsFromSearchResults(TMDB_MOVIE_CATEGORY, payload?.results);
 }
 
 export async function transformTmdbMovie(
@@ -613,4 +640,39 @@ function validateDate(value: string, field: string): void {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00.000Z`))) {
     throw new Error(`invalid TMDB movie field ${field}: ${value}`);
   }
+}
+
+function searchQuery(value: string, field: string): string {
+  const normalized = stringField(value);
+  if (!normalized) {
+    throw new Error(`${field} must not be empty`);
+  }
+  return normalized;
+}
+
+function searchParams(provider: TmdbProvider, input: TmdbSearchInput): Record<string, string> {
+  return {
+    language: input.language ?? provider.language,
+    page: String(input.page ?? 1),
+    include_adult: String(input.includeAdult ?? false)
+  };
+}
+
+async function sourceRecordsFromSearchResults(
+  category: string,
+  results: TmdbMovieSearchResult[] | undefined
+): Promise<SourceRecord[]> {
+  const records: SourceRecord[] = [];
+  for (const result of results ?? []) {
+    if (!result.id) {
+      continue;
+    }
+    records.push(
+      await createSourceRecord({
+        source: { provider: TMDB_PROVIDER, category, externalId: String(result.id) },
+        payload: result as JsonValue
+      })
+    );
+  }
+  return records;
 }

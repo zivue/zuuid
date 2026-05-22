@@ -459,6 +459,48 @@ test("TmdbProvider fetchPersonSourceRecord requests person details with API key 
   assert.deepEqual(source?.source, { provider: "tmdb", category: "person", externalId: "287" });
 });
 
+test("TmdbProvider searches movie, tv, and person source records", async () => {
+  const requestedUrls = [];
+  const provider = new TmdbProvider({
+    apiKey: "test-key",
+    fetch: async (url) => {
+      const requestedUrl = new URL(url.toString());
+      requestedUrls.push(requestedUrl);
+      const result =
+        requestedUrl.pathname === "/3/search/movie"
+          ? { id: 550, title: "Fight Club" }
+          : requestedUrl.pathname === "/3/search/tv"
+            ? { id: 1399, name: "Game of Thrones" }
+            : { id: 287, name: "Brad Pitt" };
+      return new Response(JSON.stringify({ page: 1, results: [result], total_pages: 1, total_results: 1 }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+  });
+
+  const movies = await provider.searchMovieSourceRecords({ query: "fight", page: 2, includeAdult: true, primaryReleaseYear: 1999 });
+  const tv = await provider.searchTvSourceRecords({ query: "game", firstAirDateYear: 2011 });
+  const people = await provider.searchPersonSourceRecords({ query: "brad" });
+
+  assert.equal(requestedUrls[0].pathname, "/3/search/movie");
+  assert.equal(requestedUrls[0].searchParams.get("query"), "fight");
+  assert.equal(requestedUrls[0].searchParams.get("page"), "2");
+  assert.equal(requestedUrls[0].searchParams.get("include_adult"), "true");
+  assert.equal(requestedUrls[0].searchParams.get("primary_release_year"), "1999");
+  assert.equal(requestedUrls[0].searchParams.get("api_key"), "test-key");
+  assert.deepEqual(movies[0]?.source, { provider: "tmdb", category: "movie", externalId: "550" });
+
+  assert.equal(requestedUrls[1].pathname, "/3/search/tv");
+  assert.equal(requestedUrls[1].searchParams.get("query"), "game");
+  assert.equal(requestedUrls[1].searchParams.get("first_air_date_year"), "2011");
+  assert.deepEqual(tv[0]?.source, { provider: "tmdb", category: "tv", externalId: "1399" });
+
+  assert.equal(requestedUrls[2].pathname, "/3/search/person");
+  assert.equal(requestedUrls[2].searchParams.get("query"), "brad");
+  assert.deepEqual(people[0]?.source, { provider: "tmdb", category: "person", externalId: "287" });
+});
+
 test("createZuuidClient exposes a category-first provider facade", async () => {
   let requestedUrl;
   const client = createZuuidClient({
@@ -532,4 +574,29 @@ test("createZuuidClient exposes tmdb people facade", async () => {
   assert.equal(requestedUrl.url.pathname, "/3/person/287");
   assert.equal(requestedUrl.init.headers.get("authorization"), "Bearer test-token");
   assert.deepEqual(source?.source, { provider: "tmdb", category: "person", externalId: "287" });
+});
+
+test("createZuuidClient exposes category search facades", async () => {
+  const requestedPaths = [];
+  const client = createZuuidClient({
+    providers: {
+      tmdb: {
+        apiKey: "test-key",
+        fetch: async (url) => {
+          const requestedUrl = new URL(url.toString());
+          requestedPaths.push(requestedUrl.pathname);
+          return new Response(JSON.stringify({ results: [{ id: 1, title: "Result", name: "Result" }] }), {
+            status: 200,
+            headers: { "content-type": "application/json" }
+          });
+        }
+      }
+    }
+  });
+
+  await client.movie.tmdb?.search({ query: "movie" });
+  await client.tv.tmdb?.search({ query: "tv" });
+  await client.people.tmdb?.search({ query: "person" });
+
+  assert.deepEqual(requestedPaths, ["/3/search/movie", "/3/search/tv", "/3/search/person"]);
 });

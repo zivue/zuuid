@@ -4,7 +4,7 @@ import { attachSourceMetadata, createSourceRecord, type SourceRecord } from "../
 import type { JsonValue } from "../../types.js";
 import { TMDB_POSTER_BASE_URL, TMDB_PROVIDER } from "./constants.js";
 import type { TmdbProvider } from "./client.js";
-import type { TmdbTransformOptions } from "./types.js";
+import type { TmdbSearchInput, TmdbSearchResponse, TmdbTransformOptions } from "./types.js";
 
 export const TMDB_PERSON_CATEGORY = "person";
 export const ZUUID_PERSON_CATEGORY = "person";
@@ -74,6 +74,18 @@ export type TmdbPersonImage = {
   vote_count?: number;
 };
 
+export type TmdbPersonSearchResult = {
+  adult?: boolean;
+  gender?: number;
+  id?: number;
+  known_for?: JsonValue[];
+  known_for_department?: string;
+  name?: string;
+  original_name?: string;
+  popularity?: number;
+  profile_path?: string | null;
+};
+
 export async function fetchTmdbPersonSourceRecord(
   provider: TmdbProvider,
   input: FetchTmdbPersonInput
@@ -99,6 +111,19 @@ export async function fetchTmdbPersonSourceRecord(
     source: { provider: TMDB_PROVIDER, category: TMDB_PERSON_CATEGORY, externalId: id },
     payload: payload as JsonValue
   });
+}
+
+export async function searchTmdbPersonSourceRecords(
+  provider: TmdbProvider,
+  input: TmdbSearchInput
+): Promise<SourceRecord[]> {
+  const query = searchQuery(input.query, "TMDB person search query");
+  const payload = await provider.getJson<TmdbSearchResponse<TmdbPersonSearchResult>>("/search/person", {
+    ...searchParams(provider, input),
+    query
+  });
+
+  return sourceRecordsFromSearchResults(TMDB_PERSON_CATEGORY, payload?.results);
 }
 
 export async function transformTmdbPerson(
@@ -379,4 +404,39 @@ function validateDate(value: string, field: string): void {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00.000Z`))) {
     throw new Error(`invalid TMDB person field ${field}: ${value}`);
   }
+}
+
+function searchQuery(value: string, field: string): string {
+  const normalized = stringField(value);
+  if (!normalized) {
+    throw new Error(`${field} must not be empty`);
+  }
+  return normalized;
+}
+
+function searchParams(provider: TmdbProvider, input: TmdbSearchInput): Record<string, string> {
+  return {
+    language: input.language ?? provider.language,
+    page: String(input.page ?? 1),
+    include_adult: String(input.includeAdult ?? false)
+  };
+}
+
+async function sourceRecordsFromSearchResults(
+  category: string,
+  results: TmdbPersonSearchResult[] | undefined
+): Promise<SourceRecord[]> {
+  const records: SourceRecord[] = [];
+  for (const result of results ?? []) {
+    if (!result.id) {
+      continue;
+    }
+    records.push(
+      await createSourceRecord({
+        source: { provider: TMDB_PROVIDER, category, externalId: String(result.id) },
+        payload: result as JsonValue
+      })
+    );
+  }
+  return records;
 }
