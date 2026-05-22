@@ -53,7 +53,7 @@ The dataset shape is intentionally flat:
 type ZuuidData = {
   zuuid: string;
   kind: EntityKind;
-  category: EntityCategory;
+  category: string;
   primaryTitle: string;
   primaryDate?: string;
   rating?: number;
@@ -69,6 +69,8 @@ type ZuuidData = {
   provenance: Provenance[];
 };
 ```
+
+Relations and recommendations can include provider/display hints such as titles, categories, external IDs, cover URLs, and dates. That lets a transformed dataset carry useful related-entity context before those related entities are fetched as full Zuuid datasets.
 
 Backend-only concerns such as record versions, flags, review state, index state, and object-store metadata are intentionally not part of this package's dataset shape.
 

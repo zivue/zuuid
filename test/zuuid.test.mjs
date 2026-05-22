@@ -41,14 +41,15 @@ test("createZuuidData returns the canonical flat Zuuid data shape", () => {
   });
 
   assert.equal(dataset.zuuid, "1706d641-d381-5618-9425-d8cd8b35f898");
-  assert.deepEqual(dataset.category, { kind: "watch", value: "movie" });
+  assert.equal(dataset.kind, "watch");
+  assert.equal(dataset.category, "movie");
   assert.equal(dataset.primaryTitle, "Fight Club");
   assert.deepEqual(dataset.externalIds, []);
   assert.equal("data" in dataset, false);
 });
 
 test("categoryFor and kindForCategory match core category grouping", () => {
-  assert.deepEqual(categoryFor(" Movie "), { kind: "watch", value: "movie" });
+  assert.deepEqual(categoryFor(" Movie "), { kind: "watch", category: "movie" });
   assert.equal(kindForCategory("book"), "read");
   assert.equal(kindForCategory("restaurant"), "visit");
   assert.equal(kindForCategory("collection"), "collection");
@@ -106,7 +107,8 @@ test("transformTmdbMovie maps a TMDB movie source record into Zuuid data", async
 
   assert.equal(data.zuuid, "1706d641-d381-5618-9425-d8cd8b35f898");
   assert.equal(data.primaryTitle, "Fight Club");
-  assert.deepEqual(data.category, { kind: "watch", value: "movie" });
+  assert.equal(data.kind, "watch");
+  assert.equal(data.category, "movie");
   assert.equal(data.primaryDate, "1999-10-15");
   assert.equal(data.rating, 8.4);
   assert.deepEqual(data.tags, ["drama", "thriller"]);
@@ -114,6 +116,64 @@ test("transformTmdbMovie maps a TMDB movie source record into Zuuid data", async
   assert.equal(data.externalIds.some((id) => id.source === "imdb" && id.value === "tt0137523"), true);
   assert.equal(data.provenance.length, 1);
   assert.equal(data.cover?.includes("image.tmdb.org"), true);
+});
+
+test("transformTmdbMovie maps rich TMDB movie append payloads", async () => {
+  const source = await createSourceRecord({
+    source: { provider: "tmdb", category: "movie", externalId: "550" },
+    payload: {
+      id: 550,
+      title: "Fight Club",
+      original_title: "Fight Club",
+      release_date: "1999-10-15",
+      external_ids: { imdb_id: "tt0137523", wikidata_id: "Q190050", facebook_id: "FightClub" },
+      alternative_titles: { titles: [{ iso_3166_1: "ES", title: "El club de la lucha", type: "" }] },
+      translations: {
+        translations: [
+          {
+            iso_639_1: "es",
+            iso_3166_1: "ES",
+            data: { title: "El club de la lucha", overview: "Una descripcion." }
+          }
+        ]
+      },
+      keywords: { keywords: [{ id: 818, name: "based on novel or book" }] },
+      credits: {
+        cast: [{ id: 287, name: "Brad Pitt", character: "Tyler Durden", order: 1 }],
+        crew: [{ id: 7467, name: "David Fincher", job: "Director" }]
+      },
+      production_companies: [{ id: 25, name: "20th Century Fox", origin_country: "US" }],
+      recommendations: { results: [{ id: 641, title: "Requiem for a Dream", vote_average: 8.0 }] },
+      similar: { results: [{ id: 1359, title: "American Psycho", vote_average: 7.4 }] },
+      images: {
+        posters: [{ file_path: "/poster.jpg", width: 100, height: 150 }],
+        backdrops: [{ file_path: "/backdrop.jpg", width: 200, height: 100 }],
+        logos: [{ file_path: "/logo.png" }]
+      },
+      origin_country: ["US"],
+      production_countries: [{ iso_3166_1: "US", name: "United States of America" }],
+      spoken_languages: [{ iso_639_1: "en", english_name: "English", name: "English" }],
+      tagline: "Mischief. Mayhem. Soap.",
+      adult: false,
+      video: false
+    },
+    observedAt: "2026-05-14T09:00:00.000Z"
+  });
+
+  const data = await transformTmdbMovie(source);
+
+  assert.equal(data.externalIds.some((id) => id.source === "wikidata" && id.value === "Q190050"), true);
+  assert.equal(data.aliases.some((alias) => alias.value === "El club de la lucha"), true);
+  assert.equal(data.descriptions.some((description) => description.language === "es"), true);
+  assert.equal(data.tags.includes("based on novel or book"), true);
+  assert.equal(data.relations.some((relation) => relation.relatedTitle === "Brad Pitt" && relation.attribute === "Tyler Durden"), true);
+  assert.equal(data.relations.some((relation) => relation.relatedTitle === "David Fincher" && relation.relationType === "directed_by"), true);
+  assert.equal(data.relations.some((relation) => relation.relatedTitle === "20th Century Fox" && relation.relatedCategory === "company"), true);
+  assert.equal(data.recommendations.some((recommendation) => recommendation.targetTitle === "Requiem for a Dream"), true);
+  assert.equal(data.recommendations.some((recommendation) => recommendation.targetTitle === "American Psycho"), true);
+  assert.equal(data.media.some((media) => media.mediaCategory === "logo"), true);
+  assert.equal(data.details.some((detail) => detail.key === "tagline"), true);
+  assert.equal(data.details.some((detail) => detail.key === "origin_country" && Array.isArray(detail.data)), true);
 });
 
 test("TmdbProvider fetchMovieSourceRecord requests movie details with API key credentials", async () => {

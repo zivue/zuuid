@@ -1,22 +1,26 @@
 import type { ExternalId, Provenance } from "./source.js";
+import type { JsonValue } from "./types.js";
 import { normalizeUuid } from "./uuid.js";
 
 export type EntityKind = "event" | "listen" | "people" | "play" | "read" | "visit" | "watch" | string;
 
-export type EntityCategory = {
+export type CategoryInfo = {
+  category: string;
   kind: EntityKind;
-  value: string;
 };
 
 export type Alias = {
   value: string;
   language?: string;
+  region?: string;
   aliasType: string;
   isPrimary: boolean;
+  source?: string;
 };
 
 export type Description = {
   language?: string;
+  region?: string;
   value: string;
   source?: string;
 };
@@ -24,6 +28,7 @@ export type Description = {
 export type Detail = {
   key: string;
   value: string;
+  data?: JsonValue;
   source?: string;
 };
 
@@ -56,6 +61,10 @@ export type EntityRelation = {
   relatedZuuid: string;
   relationType: RelationKind;
   direction: "outgoing" | "incoming" | "symmetric";
+  relatedTitle?: string;
+  relatedCategory?: string;
+  source?: string;
+  externalId?: string;
   attribute?: string;
   confidence?: number;
   order?: number;
@@ -68,13 +77,18 @@ export type RecommendationEdge = {
   recommendationType: RecommendationKind;
   score: number;
   source?: string;
+  targetTitle?: string;
+  targetCategory?: string;
+  targetCover?: string;
+  targetDate?: string;
+  externalId?: string;
   reasons: string[];
 };
 
 export type ZuuidData = {
   zuuid: string;
   kind: EntityKind;
-  category: EntityCategory;
+  category: string;
   primaryTitle: string;
   primaryDate?: string;
   rating?: number;
@@ -92,22 +106,22 @@ export type ZuuidData = {
 
 export type CreateZuuidDataInput = {
   zuuid: string;
-  category: string | EntityCategory;
+  category: string;
   primaryTitle: string;
 };
 
 export function createZuuidData(input: CreateZuuidDataInput): ZuuidData {
   const zuuid = normalizeUuid(input.zuuid);
-  const category = typeof input.category === "string" ? categoryFor(input.category) : input.category;
+  const category = categoryFor(input.category);
 
   return createZuuidDataFromParts(zuuid, category, input.primaryTitle);
 }
 
-export function createZuuidDataFromParts(zuuid: string, category: EntityCategory, primaryTitle: string): ZuuidData {
+export function createZuuidDataFromParts(zuuid: string, category: CategoryInfo, primaryTitle: string): ZuuidData {
   return {
     zuuid: normalizeUuid(zuuid),
     kind: category.kind,
-    category,
+    category: category.category,
     primaryTitle,
     aliases: [],
     descriptions: [],
@@ -121,11 +135,11 @@ export function createZuuidDataFromParts(zuuid: string, category: EntityCategory
   };
 }
 
-export function categoryFor(value: string): EntityCategory {
+export function categoryFor(value: string): CategoryInfo {
   const normalized = normalizeKeyPart(value);
   return {
+    category: normalized,
     kind: kindForCategory(normalized),
-    value: normalized
   };
 }
 
