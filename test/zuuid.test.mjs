@@ -190,9 +190,9 @@ test("transformTmdbMovie maps rich TMDB movie append payloads", async () => {
   assert.equal(data.recommendations.some((recommendation) => recommendation.targetTitle === "American Psycho"), true);
   assert.equal(data.media.some((media) => media.mediaCategory === "logo"), true);
   assert.equal(data.details.some((detail) => detail.key === "tagline"), true);
-  assert.equal(data.details.some((detail) => detail.key === "origin_country" && Array.isArray(detail.data)), true);
-  assert.equal(data.details.some((detail) => detail.key === "certifications" && detail.data?.[0]?.certification === "R"), true);
-  assert.equal(data.details.some((detail) => detail.key === "release_dates" && detail.data?.[0]?.iso_3166_1 === "US"), true);
+  assert.equal(data.details.some((detail) => detail.key === "origin_country" && Array.isArray(detail.value)), true);
+  assert.equal(data.details.some((detail) => detail.key === "certifications" && detail.value?.[0]?.certification === "R"), true);
+  assert.equal(data.details.some((detail) => detail.key === "release_dates" && detail.value?.[0]?.iso_3166_1 === "US"), true);
 });
 
 test("TmdbProvider fetchMovieSourceRecord requests movie details with API key credentials", async () => {
@@ -326,15 +326,15 @@ test("transformTmdbTv maps a TMDB tv source record into Zuuid data", async () =>
   assert.equal(data.cover?.includes("image.tmdb.org"), true);
   assert.equal(data.media.some((media) => media.mediaCategory === "poster" && media.data?.width === 1000), true);
   assert.equal(data.details.some((detail) => detail.key === "tagline" && detail.value === "Winter is coming."), true);
-  assert.equal(data.details.some((detail) => detail.key === "adult" && detail.value === "false"), true);
-  assert.equal(data.details.some((detail) => detail.key === "in_production" && detail.value === "false"), true);
-  assert.equal(data.details.some((detail) => detail.key === "softcore" && detail.value === "false"), true);
-  assert.equal(data.details.some((detail) => detail.key === "episode_run_time" && detail.data?.[0] === 60), true);
-  assert.equal(data.details.some((detail) => detail.key === "languages" && detail.data?.[0] === "en"), true);
-  assert.equal(data.details.some((detail) => detail.key === "production_countries" && detail.data?.[0]?.iso_3166_1 === "US"), true);
-  assert.equal(data.details.some((detail) => detail.key === "certifications" && detail.data?.[0]?.certification === "TV-MA"), true);
-  assert.equal(data.details.some((detail) => detail.key === "content_ratings" && detail.data?.[0]?.rating === "TV-MA"), true);
-  assert.equal(data.details.some((detail) => detail.key === "last_episode_to_air" && detail.data?.name === "The Iron Throne"), true);
+  assert.equal(data.details.some((detail) => detail.key === "adult" && detail.value === false), true);
+  assert.equal(data.details.some((detail) => detail.key === "in_production" && detail.value === false), true);
+  assert.equal(data.details.some((detail) => detail.key === "softcore" && detail.value === false), true);
+  assert.equal(data.details.some((detail) => detail.key === "episode_run_time" && detail.value?.[0] === 60), true);
+  assert.equal(data.details.some((detail) => detail.key === "languages" && detail.value?.[0] === "en"), true);
+  assert.equal(data.details.some((detail) => detail.key === "production_countries" && detail.value?.[0]?.iso_3166_1 === "US"), true);
+  assert.equal(data.details.some((detail) => detail.key === "certifications" && detail.value?.[0]?.certification === "TV-MA"), true);
+  assert.equal(data.details.some((detail) => detail.key === "content_ratings" && detail.value?.[0]?.rating === "TV-MA"), true);
+  assert.equal(data.details.some((detail) => detail.key === "last_episode_to_air" && detail.value?.name === "The Iron Throne"), true);
 });
 
 test("TmdbProvider fetchTvSourceRecord requests tv details with API key credentials", async () => {

@@ -27,8 +27,7 @@ export type Description = {
 
 export type Detail = {
   key: string;
-  value: string;
-  data?: JsonValue;
+  value: JsonValue;
   source?: string;
 };
 

@@ -495,25 +495,25 @@ function addDetail(data: ZuuidData, key: string, value: string | undefined): voi
 
 function addNumberDetail(data: ZuuidData, key: string, value: number | undefined): void {
   if (typeof value === "number") {
-    data.details.push({ key, value: String(value), source: TMDB_PROVIDER });
+    data.details.push({ key, value, source: TMDB_PROVIDER });
   }
 }
 
 function addBooleanDetail(data: ZuuidData, key: string, value: boolean | undefined): void {
   if (typeof value === "boolean") {
-    data.details.push({ key, value: String(value), source: TMDB_PROVIDER });
+    data.details.push({ key, value, source: TMDB_PROVIDER });
   }
 }
 
 function addNumberArrayDetail(data: ZuuidData, key: string, value: number[] | undefined): void {
   if (value?.length) {
-    data.details.push({ key, value: value.join(","), data: value, source: TMDB_PROVIDER });
+    data.details.push({ key, value, source: TMDB_PROVIDER });
   }
 }
 
 function addArrayDetail(data: ZuuidData, key: string, value: string[] | undefined): void {
   if (value?.length) {
-    data.details.push({ key, value: value.join(","), data: value, source: TMDB_PROVIDER });
+    data.details.push({ key, value, source: TMDB_PROVIDER });
   }
 }
 
@@ -540,8 +540,7 @@ function addTvCertifications(data: ZuuidData, payload: TmdbTvPayload): void {
 
   data.details.push({
     key: "certifications",
-    value: certifications.map((item) => `${item.region}:${item.certification}`).join(","),
-    data: certifications,
+    value: certifications,
     source: TMDB_PROVIDER
   });
 }
@@ -550,7 +549,7 @@ function addStructuredDetail(data: ZuuidData, key: string, value: JsonValue | un
   if (value === undefined || value === null || (Array.isArray(value) && value.length === 0)) {
     return;
   }
-  data.details.push({ key, value: JSON.stringify(value), data: value, source: TMDB_PROVIDER });
+  data.details.push({ key, value, source: TMDB_PROVIDER });
 }
 
 function stringField(value: string | undefined): string | undefined {
