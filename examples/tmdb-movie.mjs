@@ -1,10 +1,10 @@
-import { TmdbProvider, transformTmdbMovie, transformTmdbTv } from "../dist/providers/tmdb/index.js";
+import { TmdbProvider, transformTmdbMovie, transformTmdbPerson, transformTmdbTv } from "../dist/providers/tmdb/index.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 loadDotEnv();
 
 const category = process.argv[2] ?? "movie";
-const id = process.argv[3] ?? (category === "tv" ? "1399" : "550");
+const id = process.argv[3] ?? (category === "tv" ? "1399" : category === "people" || category === "person" ? "287" : "550");
 const configuredBearerToken = cleanEnvValue(process.env.TMDB_BEARER_TOKEN ?? process.env.TMDB_READ_ACCESS_TOKEN);
 const configuredApiKey = cleanEnvValue(process.env.TMDB_API_KEY);
 const apiKeyLooksLikeBearerToken = configuredApiKey?.startsWith("eyJ") ?? false;
@@ -15,6 +15,7 @@ if (!bearerToken && !apiKey) {
   console.error("Set TMDB_BEARER_TOKEN, TMDB_READ_ACCESS_TOKEN, or TMDB_API_KEY before running this example.");
   console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:tmdb -- movie 550");
   console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:tmdb -- tv 1399");
+  console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:tmdb -- people 287");
   process.exit(1);
 }
 
@@ -33,6 +34,9 @@ try {
   } else if (category === "tv") {
     source = await tmdb.fetchTvSourceRecord({ id });
     transformed = source ? await transformTmdbTv(source, tmdb.transformOptions()) : undefined;
+  } else if (category === "people" || category === "person") {
+    source = await tmdb.fetchPersonSourceRecord({ id });
+    transformed = source ? await transformTmdbPerson(source, tmdb.transformOptions()) : undefined;
   } else {
     throw new Error(`Unsupported TMDB example category: ${category}`);
   }

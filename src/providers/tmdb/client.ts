@@ -2,6 +2,7 @@ import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
 import { TMDB_API_BASE, TMDB_BACKDROP_BASE_URL, TMDB_POSTER_BASE_URL } from "./constants.js";
 import { fetchTmdbMovieSourceRecord, type FetchTmdbMovieInput, transformTmdbMovie } from "./movie.js";
+import { fetchTmdbPersonSourceRecord, type FetchTmdbPersonInput, transformTmdbPerson } from "./person.js";
 import { fetchTmdbTvSourceRecord, type FetchTmdbTvInput, transformTmdbTv } from "./tv.js";
 import type { FetchLike, TmdbCredential, TmdbProviderOptions, TmdbTransformOptions } from "./types.js";
 
@@ -69,6 +70,15 @@ export class TmdbProvider {
   async fetchTv(input: FetchTmdbTvInput): Promise<ZuuidData | undefined> {
     const source = await this.fetchTvSourceRecord(input);
     return source ? transformTmdbTv(source, this.transformOptions()) : undefined;
+  }
+
+  async fetchPersonSourceRecord(input: FetchTmdbPersonInput): Promise<SourceRecord | undefined> {
+    return fetchTmdbPersonSourceRecord(this, input);
+  }
+
+  async fetchPerson(input: FetchTmdbPersonInput): Promise<ZuuidData | undefined> {
+    const source = await this.fetchPersonSourceRecord(input);
+    return source ? transformTmdbPerson(source, this.transformOptions()) : undefined;
   }
 
   transformOptions(): TmdbTransformOptions {

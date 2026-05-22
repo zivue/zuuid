@@ -12,6 +12,7 @@ import {
   providerZuuid,
   TmdbProvider,
   transformTmdbMovie,
+  transformTmdbPerson,
   transformTmdbTv
 } from "../dist/index.js";
 
@@ -362,6 +363,102 @@ test("TmdbProvider fetchTvSourceRecord requests tv details with API key credenti
   assert.deepEqual(source?.source, { provider: "tmdb", category: "tv", externalId: "1399" });
 });
 
+test("transformTmdbPerson maps a TMDB person source record into Zuuid data", async () => {
+  const source = await createSourceRecord({
+    source: { provider: "tmdb", category: "person", externalId: "287" },
+    payload: {
+      id: 287,
+      name: "Brad Pitt",
+      also_known_as: ["William Bradley Pitt"],
+      biography: "William Bradley Pitt is an American actor.",
+      birthday: "1963-12-18",
+      gender: 2,
+      homepage: "https://example.com/brad",
+      known_for_department: "Acting",
+      place_of_birth: "Shawnee, Oklahoma, USA",
+      popularity: 12.5,
+      profile_path: "/brad.jpg",
+      external_ids: { imdb_id: "nm0000093", wikidata_id: "Q35332" },
+      combined_credits: {
+        cast: [
+          {
+            id: 550,
+            title: "Fight Club",
+            media_type: "movie",
+            character: "Tyler Durden",
+            poster_path: "/fight.jpg",
+            release_date: "1999-10-15",
+            vote_average: 8.4,
+            credit_id: "abc"
+          }
+        ],
+        crew: [
+          {
+            id: 641,
+            title: "Requiem for a Dream",
+            media_type: "movie",
+            job: "Producer",
+            poster_path: "/requiem.jpg",
+            release_date: "2000-10-06"
+          }
+        ]
+      },
+      images: {
+        profiles: [{ file_path: "/brad-alt.jpg", width: 1000, height: 1500, vote_average: 5.5, vote_count: 3 }]
+      }
+    },
+    observedAt: "2026-05-22T09:00:00.000Z"
+  });
+
+  const data = await transformTmdbPerson(source);
+
+  assert.equal(data.primaryTitle, "Brad Pitt");
+  assert.equal(data.kind, "people");
+  assert.equal(data.category, "person");
+  assert.equal(data.primaryDate, "1963-12-18");
+  assert.equal(data.cover?.includes("image.tmdb.org"), true);
+  assert.equal(data.aliases.some((alias) => alias.value === "William Bradley Pitt"), true);
+  assert.equal(data.descriptions.some((description) => description.value.includes("American actor")), true);
+  assert.equal(data.externalIds.some((id) => id.source === "imdb" && id.value === "nm0000093"), true);
+  assert.equal(data.details.some((detail) => detail.key === "gender" && detail.value === 2), true);
+  assert.equal(data.details.some((detail) => detail.key === "known_for_department" && detail.value === "Acting"), true);
+  assert.equal(
+    data.relations.some(
+      (relation) =>
+        relation.relatedTitle === "Fight Club" &&
+        relation.relationType === "appears_in" &&
+        relation.relatedCategory === "movie" &&
+        relation.relatedImage?.includes("image.tmdb.org") &&
+        relation.data?.voteAverage === 8.4
+    ),
+    true
+  );
+  assert.equal(data.relations.some((relation) => relation.relatedTitle === "Requiem for a Dream" && relation.relationType === "produced"), true);
+  assert.equal(data.media.some((media) => media.mediaCategory === "profile" && media.data?.voteAverage === 5.5), true);
+});
+
+test("TmdbProvider fetchPersonSourceRecord requests person details with API key credentials", async () => {
+  let requestedUrl;
+  const provider = new TmdbProvider({
+    apiKey: "test-key",
+    fetch: async (url) => {
+      requestedUrl = new URL(url.toString());
+      return new Response(JSON.stringify({ id: 287, name: "Brad Pitt" }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+  });
+
+  const source = await provider.fetchPersonSourceRecord({ id: 287 });
+
+  assert.equal(requestedUrl.pathname, "/3/person/287");
+  assert.equal(requestedUrl.searchParams.get("api_key"), "test-key");
+  assert.equal(requestedUrl.searchParams.get("language"), "en-US");
+  assert.equal(requestedUrl.searchParams.get("append_to_response"), "combined_credits,external_ids,images");
+  assert.deepEqual(source?.source, { provider: "tmdb", category: "person", externalId: "287" });
+});
+
 test("createZuuidClient exposes a category-first provider facade", async () => {
   let requestedUrl;
   const client = createZuuidClient({
@@ -386,6 +483,7 @@ test("createZuuidClient exposes a category-first provider facade", async () => {
   assert.deepEqual(source?.source, { provider: "tmdb", category: "movie", externalId: "550" });
   assert.equal(createZuuidClient().movie.tmdb, undefined);
   assert.equal(createZuuidClient().tv.tmdb, undefined);
+  assert.equal(createZuuidClient().people.tmdb, undefined);
 });
 
 test("createZuuidClient exposes tmdb tv facade", async () => {
@@ -410,4 +508,28 @@ test("createZuuidClient exposes tmdb tv facade", async () => {
   assert.equal(requestedUrl.url.pathname, "/3/tv/1399");
   assert.equal(requestedUrl.init.headers.get("authorization"), "Bearer test-token");
   assert.deepEqual(source?.source, { provider: "tmdb", category: "tv", externalId: "1399" });
+});
+
+test("createZuuidClient exposes tmdb people facade", async () => {
+  let requestedUrl;
+  const client = createZuuidClient({
+    providers: {
+      tmdb: {
+        bearerToken: "test-token",
+        fetch: async (url, init) => {
+          requestedUrl = { url: new URL(url.toString()), init };
+          return new Response(JSON.stringify({ id: 287, name: "Brad Pitt" }), {
+            status: 200,
+            headers: { "content-type": "application/json" }
+          });
+        }
+      }
+    }
+  });
+
+  const source = await client.people.tmdb?.fetchSourceRecord({ id: 287 });
+
+  assert.equal(requestedUrl.url.pathname, "/3/person/287");
+  assert.equal(requestedUrl.init.headers.get("authorization"), "Bearer test-token");
+  assert.deepEqual(source?.source, { provider: "tmdb", category: "person", externalId: "287" });
 });

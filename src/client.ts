@@ -2,8 +2,10 @@ import type { ZuuidData } from "./entity.js";
 import {
   TmdbProvider,
   transformTmdbMovie,
+  transformTmdbPerson,
   transformTmdbTv,
   type FetchTmdbMovieInput,
+  type FetchTmdbPersonInput,
   type FetchTmdbTvInput,
   type TmdbProviderOptions
 } from "./providers/tmdb/index.js";
@@ -30,6 +32,9 @@ export type ZuuidClient = {
   tv: {
     tmdb?: MovieProviderClient<FetchTmdbTvInput>;
   };
+  people: {
+    tmdb?: MovieProviderClient<FetchTmdbPersonInput>;
+  };
 };
 
 export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
@@ -51,6 +56,15 @@ export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
             fetch: (input: FetchTmdbTvInput) => tmdb.fetchTv(input),
             fetchSourceRecord: (input: FetchTmdbTvInput) => tmdb.fetchTvSourceRecord(input),
             transform: (source: SourceRecord) => transformTmdbTv(source, tmdb.transformOptions())
+          })
+        : undefined
+    }),
+    people: Object.freeze({
+      tmdb: tmdb
+        ? Object.freeze({
+            fetch: (input: FetchTmdbPersonInput) => tmdb.fetchPerson(input),
+            fetchSourceRecord: (input: FetchTmdbPersonInput) => tmdb.fetchPersonSourceRecord(input),
+            transform: (source: SourceRecord) => transformTmdbPerson(source, tmdb.transformOptions())
           })
         : undefined
     })

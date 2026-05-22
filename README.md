@@ -92,9 +92,9 @@ const withSource = attachSourceMetadata(dataset, source);
 
 `attachSourceMetadata` returns a new dataset with `externalIds` and `provenance` updated.
 
-## TMDB Movies And TV
+## TMDB Movies, TV, And People
 
-The first provider module supports fetching and transforming TMDB movies and TV shows.
+The first provider module supports fetching and transforming TMDB movies, TV shows, and people.
 
 ```ts
 import { TmdbProvider } from "@zivue/zuuid/providers/tmdb";
@@ -105,6 +105,7 @@ const tmdb = new TmdbProvider({
 
 const movie = await tmdb.fetchMovie({ id: 550 });
 const tv = await tmdb.fetchTv({ id: 1399 });
+const person = await tmdb.fetchPerson({ id: 287 });
 
 console.log(movie?.zuuid);
 // 1706d641-d381-5618-9425-d8cd8b35f898
@@ -113,20 +114,24 @@ console.log(movie?.zuuid);
 You can also split fetching from transformation:
 
 ```ts
-import { TmdbProvider, transformTmdbMovie, transformTmdbTv } from "@zivue/zuuid/providers/tmdb";
+import { TmdbProvider, transformTmdbMovie, transformTmdbPerson, transformTmdbTv } from "@zivue/zuuid/providers/tmdb";
 
 const source = await tmdb.fetchMovieSourceRecord({ id: 550 });
 const movie = source ? await transformTmdbMovie(source) : undefined;
 
 const tvSource = await tmdb.fetchTvSourceRecord({ id: 1399 });
 const tv = tvSource ? await transformTmdbTv(tvSource) : undefined;
+
+const personSource = await tmdb.fetchPersonSourceRecord({ id: 287 });
+const person = personSource ? await transformTmdbPerson(personSource) : undefined;
 ```
 
-Movie-only imports are also available:
+Category-specific imports are also available:
 
 ```ts
 import { transformTmdbMovie } from "@zivue/zuuid/providers/tmdb/movie";
 import { transformTmdbTv } from "@zivue/zuuid/providers/tmdb/tv";
+import { transformTmdbPerson } from "@zivue/zuuid/providers/tmdb/person";
 ```
 
 `TmdbProvider` accepts either `{ bearerToken }` or `{ apiKey }`.
@@ -149,6 +154,7 @@ const zuuid = createZuuidClient({
 
 const movie = await zuuid.movie.tmdb?.fetch({ id: 550 });
 const tv = await zuuid.tv.tmdb?.fetch({ id: 1399 });
+const person = await zuuid.people.tmdb?.fetch({ id: 287 });
 ```
 
 The config is provider-keyed because apps usually manage credentials per provider. The client facade is category-first, so multiple movie providers can live under `zuuid.movie`:
@@ -156,6 +162,7 @@ The config is provider-keyed because apps usually manage credentials per provide
 ```ts
 zuuid.movie.tmdb?.fetch({ id: 550 });
 zuuid.tv.tmdb?.fetch({ id: 1399 });
+zuuid.people.tmdb?.fetch({ id: 287 });
 // later: zuuid.movie.omdb?.fetch(...)
 ```
 
@@ -175,6 +182,7 @@ The source is split by Zuuid responsibility:
 - `providers/<provider>/<category>.ts`: category-specific fetch and transform helpers
 - `providers/tmdb/movie.ts`: TMDB movie fetch and transform helpers
 - `providers/tmdb/tv.ts`: TMDB TV fetch and transform helpers
+- `providers/tmdb/person.ts`: TMDB person fetch and transform helpers
 - `source.ts`: source records, external IDs, and provenance
 - `hash.ts`: stable payload hashing
 - `uuid.ts`: UUID parsing/normalization and UUID v5 internals
@@ -203,11 +211,19 @@ Returns a new dataset with external ID and provenance attached.
 
 ### `TmdbProvider`
 
-Fetches TMDB movie source records and transforms them into `ZuuidData`.
+Fetches TMDB source records and transforms them into `ZuuidData`.
 
 ### `transformTmdbMovie(sourceRecord, options?)`
 
 Transforms an already-fetched TMDB movie source record into `ZuuidData`.
+
+### `transformTmdbTv(sourceRecord, options?)`
+
+Transforms an already-fetched TMDB TV source record into `ZuuidData`.
+
+### `transformTmdbPerson(sourceRecord, options?)`
+
+Transforms an already-fetched TMDB person source record into `ZuuidData`.
 
 ### `categoryFor(value)`
 
@@ -244,6 +260,12 @@ Fetch and transform TMDB TV show `1399`:
 TMDB_BEARER_TOKEN=... npm run example:tmdb -- tv 1399
 ```
 
+Fetch and transform TMDB person `287`:
+
+```sh
+TMDB_BEARER_TOKEN=... npm run example:tmdb -- people 287
+```
+
 The example also reads `.env` from the repo root:
 
 ```sh
@@ -265,4 +287,6 @@ data/tmdb/movie/550.raw.json
 data/tmdb/movie/550.zuuid.json
 data/tmdb/tv/1399.raw.json
 data/tmdb/tv/1399.zuuid.json
+data/tmdb/people/287.raw.json
+data/tmdb/people/287.zuuid.json
 ```
