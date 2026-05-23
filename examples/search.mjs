@@ -13,6 +13,7 @@ if (requiresTmdbCredentials(category) && !credentials) {
   console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:search -- tv \"Game of Thrones\"");
   console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:search -- people \"Brad Pitt\"");
   console.error("Open Library does not need credentials: npm run example:search -- book \"The Lord of the Rings\"");
+  console.error("Open Library does not need credentials: npm run example:search -- author \"J. K. Rowling\"");
   process.exit(1);
 }
 
@@ -60,6 +61,8 @@ async function searchUnified(client, category, query) {
       return client.tv.tmdb?.search({ query }) ?? emptySearchResponse();
     case "people":
       return client.people.tmdb?.search({ query }) ?? emptySearchResponse();
+    case "author":
+      return client.people.openlibrary?.search({ query }) ?? emptySearchResponse();
     case "book":
       return client.read.openlibrary?.search({ query }) ?? emptySearchResponse();
     default:
@@ -75,6 +78,8 @@ async function searchRaw(tmdb, category, query) {
       return tmdb?.searchTvSourceRecords({ query }) ?? emptySearchResponse();
     case "people":
       return tmdb?.searchPersonSourceRecords({ query }) ?? emptySearchResponse();
+    case "author":
+      return openlibrary.searchAuthorSourceRecords({ query });
     case "book":
       return openlibrary.searchBookSourceRecords({ query });
     default:
@@ -83,7 +88,7 @@ async function searchRaw(tmdb, category, query) {
 }
 
 function writeDebugJson(category, query, results, raw) {
-  const provider = category === "book" ? "openlibrary" : "tmdb";
+  const provider = isOpenLibraryCategory(category) ? "openlibrary" : "tmdb";
   const directory = `data/${provider}/search/${category}`;
   const slug = querySlug(query);
   mkdirSync(directory, { recursive: true });
@@ -125,6 +130,8 @@ function defaultQuery(category) {
       return "Game of Thrones";
     case "people":
       return "Brad Pitt";
+    case "author":
+      return "J. K. Rowling";
     case "book":
       return "The Lord of the Rings";
     default:
@@ -227,4 +234,8 @@ function querySlug(value) {
 
 function requiresTmdbCredentials(category) {
   return category === "movie" || category === "tv" || category === "people";
+}
+
+function isOpenLibraryCategory(category) {
+  return category === "book" || category === "author";
 }

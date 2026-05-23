@@ -1,7 +1,9 @@
 import type { SearchResponse, ZuuidData, ZuuidSearchResult } from "./entity.js";
 import {
   OpenLibraryProvider,
+  transformOpenLibraryAuthor,
   transformOpenLibraryBook,
+  type FetchOpenLibraryAuthorInput,
   type FetchOpenLibraryBookInput,
   type OpenLibraryProviderOptions,
   type OpenLibrarySearchInput
@@ -53,6 +55,7 @@ export type ZuuidClient = {
   };
   people: {
     tmdb?: ProviderClient<FetchTmdbPersonInput, TmdbSearchInput>;
+    openlibrary?: ProviderClient<FetchOpenLibraryAuthorInput, OpenLibrarySearchInput>;
   };
   read: {
     openlibrary?: ProviderClient<FetchOpenLibraryBookInput, OpenLibrarySearchInput>;
@@ -94,6 +97,15 @@ export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
             search: (input: TmdbSearchInput) => tmdb.searchPeople(input),
             searchSourceRecords: (input: TmdbSearchInput) => tmdb.searchPersonSourceRecords(input),
             transform: (source: SourceRecord) => transformTmdbPerson(source, tmdb.transformOptions())
+          })
+        : undefined,
+      openlibrary: openlibrary
+        ? Object.freeze({
+            fetch: (input: FetchOpenLibraryAuthorInput) => openlibrary.fetchAuthor(input),
+            fetchSourceRecord: (input: FetchOpenLibraryAuthorInput) => openlibrary.fetchAuthorSourceRecord(input),
+            search: (input: OpenLibrarySearchInput) => openlibrary.searchAuthors(input),
+            searchSourceRecords: (input: OpenLibrarySearchInput) => openlibrary.searchAuthorSourceRecords(input),
+            transform: (source: SourceRecord) => transformOpenLibraryAuthor(source, openlibrary.transformOptions())
           })
         : undefined
     }),

@@ -12,6 +12,7 @@ import {
   providerNamespace,
   providerZuuid,
   TmdbProvider,
+  transformOpenLibraryAuthor,
   transformOpenLibraryBook,
   transformTmdbMovie,
   transformTmdbPerson,
@@ -849,6 +850,99 @@ test("OpenLibraryProvider searches unified and raw book results", async () => {
   assert.deepEqual(raw.results[0]?.source, { provider: "openlibrary", category: "book", externalId: "OL82563W" });
 });
 
+test("transformOpenLibraryAuthor maps an Open Library author source record into Zuuid data", async () => {
+  const source = await createSourceRecord({
+    source: { provider: "openlibrary", category: "author", externalId: "OL23919A" },
+    payload: {
+      author: {
+        key: "/authors/OL23919A",
+        name: "J. K. Rowling",
+        alternate_names: ["Joanne Rowling"],
+        birth_date: "31 July 1965",
+        bio: { value: "British author." },
+        photos: [5543033],
+        wikipedia: "https://en.wikipedia.org/wiki/J._K._Rowling"
+      },
+      works: {
+        size: 162,
+        entries: [
+          {
+            key: "/works/OL82563W",
+            title: "Harry Potter and the Philosopher's Stone",
+            first_publish_date: "1997",
+            covers: [15155833]
+          }
+        ]
+      }
+    },
+    observedAt: "2026-05-23T09:00:00.000Z"
+  });
+
+  const data = await transformOpenLibraryAuthor(source);
+
+  assert.equal(data.primaryTitle, "J. K. Rowling");
+  assert.equal(data.kind, "people");
+  assert.equal(data.category, "author");
+  assert.equal(data.primaryDate, "31 July 1965");
+  assert.equal(data.cover?.includes("covers.openlibrary.org"), true);
+  assert.equal(data.aliases.some((alias) => alias.value === "Joanne Rowling"), true);
+  assert.equal(data.descriptions.some((description) => description.value.includes("British author")), true);
+  assert.equal(data.details.some((detail) => detail.key === "work_count" && detail.value === 162), true);
+  assert.equal(
+    data.relations.some(
+      (relation) =>
+        relation.category === "book" &&
+        relation.relationType === "author_of" &&
+        relation.externalId === "OL82563W" &&
+        relation.title === "Harry Potter and the Philosopher's Stone"
+    ),
+    true
+  );
+  assert.equal(data.externalIds.some((id) => id.source === "openlibrary" && id.category === "author" && id.value === "OL23919A"), true);
+});
+
+test("OpenLibraryProvider fetches and searches authors", async () => {
+  const requestedUrls = [];
+  const provider = new OpenLibraryProvider({
+    fetch: async (url) => {
+      const requestedUrl = new URL(url.toString());
+      requestedUrls.push(requestedUrl);
+      const payload =
+        requestedUrl.pathname === "/search/authors.json"
+          ? {
+              numFound: 1,
+              docs: [{ key: "OL23919A", name: "J. K. Rowling", birth_date: "31 July 1965", top_work: "Harry Potter", work_count: 162 }]
+            }
+          : requestedUrl.pathname === "/authors/OL23919A/works.json"
+            ? { size: 1, entries: [{ key: "/works/OL82563W", title: "Harry Potter" }] }
+            : { key: "/authors/OL23919A", name: "J. K. Rowling" };
+      return new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+  });
+
+  const search = await provider.searchAuthors({ query: "rowling", limit: 5 });
+  const raw = await provider.searchAuthorSourceRecords({ query: "rowling", limit: 5 });
+  const source = await provider.fetchAuthorSourceRecord({ id: "/authors/OL23919A" });
+
+  assert.deepEqual(
+    requestedUrls.map((url) => url.pathname),
+    ["/search/authors.json", "/search/authors.json", "/authors/OL23919A.json", "/authors/OL23919A/works.json"]
+  );
+  assert.equal(search.results[0]?.category, "author");
+  assert.equal(search.results[0]?.title, "J. K. Rowling");
+  assert.equal(search.results[0]?.date, "31 July 1965");
+  assert.equal(search.results[0]?.attribute, "Harry Potter");
+  assert.equal(search.results[0]?.weight, 162);
+  assert.deepEqual(search.results[0]?.source, { source: "openlibrary", category: "author", value: "OL23919A" });
+  assert.deepEqual(search.pagination, { page: 1, totalPages: 1, totalResults: 1 });
+  assert.deepEqual(raw.results[0]?.source, { provider: "openlibrary", category: "author", externalId: "OL23919A" });
+  assert.deepEqual(source?.source, { provider: "openlibrary", category: "author", externalId: "OL23919A" });
+  assert.equal(source?.payload.works.entries[0]?.title, "Harry Potter");
+});
+
 test("createZuuidClient exposes openlibrary read facade", async () => {
   const requestedPaths = [];
   const client = createZuuidClient({
@@ -880,4 +974,35 @@ test("createZuuidClient exposes openlibrary read facade", async () => {
   assert.deepEqual(requestedPaths, ["/search.json", "/works/OL82563W.json", "/works/OL82563W/editions.json", "/works/OL82563W/ratings.json"]);
   assert.equal(search?.results[0]?.title, "Book");
   assert.deepEqual(source?.source, { provider: "openlibrary", category: "book", externalId: "OL82563W" });
+});
+
+test("createZuuidClient exposes openlibrary people facade", async () => {
+  const requestedPaths = [];
+  const client = createZuuidClient({
+    providers: {
+      openlibrary: {
+        fetch: async (url) => {
+          const requestedUrl = new URL(url.toString());
+          requestedPaths.push(requestedUrl.pathname);
+          const payload =
+            requestedUrl.pathname === "/search/authors.json"
+              ? { docs: [{ key: "OL23919A", name: "Author" }] }
+              : requestedUrl.pathname === "/authors/OL23919A/works.json"
+                ? { entries: [] }
+                : { name: "Author" };
+          return new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { "content-type": "application/json" }
+          });
+        }
+      }
+    }
+  });
+
+  const search = await client.people.openlibrary?.search({ query: "author" });
+  const source = await client.people.openlibrary?.fetchSourceRecord({ id: "OL23919A" });
+
+  assert.deepEqual(requestedPaths, ["/search/authors.json", "/authors/OL23919A.json", "/authors/OL23919A/works.json"]);
+  assert.equal(search?.results[0]?.title, "Author");
+  assert.deepEqual(source?.source, { provider: "openlibrary", category: "author", externalId: "OL23919A" });
 });

@@ -34,7 +34,7 @@ export type OpenLibraryWorkPayload = {
   links?: { title?: string; url?: string; type?: { key?: string } }[];
 };
 
-export type OpenLibraryAuthorPayload = {
+export type OpenLibraryBookAuthorPayload = {
   key?: string;
   name?: string;
   birth_date?: string;
@@ -67,7 +67,7 @@ export type OpenLibraryBookPayload = {
     entries: OpenLibraryEditionPayload[];
     size?: number;
   };
-  authors?: OpenLibraryAuthorPayload[];
+  authors?: OpenLibraryBookAuthorPayload[];
   ratings?: OpenLibraryRatingsPayload;
 };
 
@@ -247,14 +247,14 @@ export async function transformOpenLibraryBook(
   return attachSourceMetadata(data, source);
 }
 
-async function fetchOpenLibraryAuthors(provider: OpenLibraryProvider, work: OpenLibraryWorkPayload): Promise<OpenLibraryAuthorPayload[]> {
-  const authors: OpenLibraryAuthorPayload[] = [];
+async function fetchOpenLibraryAuthors(provider: OpenLibraryProvider, work: OpenLibraryWorkPayload): Promise<OpenLibraryBookAuthorPayload[]> {
+  const authors: OpenLibraryBookAuthorPayload[] = [];
   for (const ref of work.authors ?? []) {
     const id = openLibraryAuthorIdFromKey(ref.author?.key);
     if (!id) {
       continue;
     }
-    const author = await provider.getJson<OpenLibraryAuthorPayload>(`/authors/${id}.json`, {});
+    const author = await provider.getJson<OpenLibraryBookAuthorPayload>(`/authors/${id}.json`, {});
     if (author) {
       authors.push(author);
     }

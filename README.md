@@ -2,7 +2,7 @@
 
 Search, fetch, and normalize media metadata from external providers into a shared Zivue/Zuuid data shape.
 
-This package is meant to be used by apps that need provider-backed lookup and transformation, but do not want provider-specific response shapes leaking through the app. It currently supports TMDB movies, TV shows, and people, plus Open Library books.
+This package is meant to be used by apps that need provider-backed lookup and transformation, but do not want provider-specific response shapes leaking through the app. It currently supports TMDB movies, TV shows, and people, plus Open Library books and authors.
 
 Storage, caching, indexing, review state, object-store keys, and persistence belong in a layer outside this package.
 
@@ -104,6 +104,7 @@ Search results, relations, and recommendations share the same lightweight list i
 | TMDB | tv | yes | yes | yes |
 | TMDB | person | yes | yes | yes |
 | Open Library | book | yes | yes | yes |
+| Open Library | author | yes | yes | yes |
 
 ## TMDB Credentials
 
@@ -133,6 +134,7 @@ const movies = await zuuid.movie.tmdb?.search({ query: "Fight Club" });
 const tvShows = await zuuid.tv.tmdb?.search({ query: "Game of Thrones" });
 const people = await zuuid.people.tmdb?.search({ query: "Brad Pitt" });
 const books = await zuuid.read.openlibrary?.search({ query: "The Lord of the Rings" });
+const authors = await zuuid.people.openlibrary?.search({ query: "J. K. Rowling" });
 ```
 
 Provider methods are also available directly:
@@ -148,6 +150,7 @@ import { OpenLibraryProvider } from "@zivue/zuuid/providers/openlibrary";
 
 const openlibrary = new OpenLibraryProvider();
 const books = await openlibrary.searchBooks({ query: "The Lord of the Rings" });
+const authors = await openlibrary.searchAuthors({ query: "J. K. Rowling" });
 ```
 
 Search options include pagination and common TMDB filters:
@@ -176,6 +179,7 @@ const movie = await zuuid.movie.tmdb?.fetch({ id: 550 });
 const tv = await zuuid.tv.tmdb?.fetch({ id: 1399 });
 const person = await zuuid.people.tmdb?.fetch({ id: 287 });
 const book = await zuuid.read.openlibrary?.fetch({ id: "OL82563W" });
+const author = await zuuid.people.openlibrary?.fetch({ id: "OL23919A" });
 ```
 
 Direct provider methods are equivalent:
@@ -186,6 +190,7 @@ const tv = await tmdb.fetchTv({ id: 1399 });
 const person = await tmdb.fetchPerson({ id: 287 });
 
 const book = await openlibrary.fetchBook({ id: "OL82563W" });
+const author = await openlibrary.fetchAuthor({ id: "OL23919A" });
 ```
 
 ## Raw Source Records And Transform
@@ -206,6 +211,7 @@ import { transformTmdbMovie } from "@zivue/zuuid/providers/tmdb/movie";
 import { transformTmdbTv } from "@zivue/zuuid/providers/tmdb/tv";
 import { transformTmdbPerson } from "@zivue/zuuid/providers/tmdb/person";
 import { transformOpenLibraryBook } from "@zivue/zuuid/providers/openlibrary/book";
+import { transformOpenLibraryAuthor } from "@zivue/zuuid/providers/openlibrary/author";
 ```
 
 ## Data Model
@@ -264,6 +270,8 @@ zuuid.tv.tmdb?.fetch({ id: 1399 });
 
 zuuid.people.tmdb?.search({ query: "Brad Pitt" });
 zuuid.people.tmdb?.fetch({ id: 287 });
+zuuid.people.openlibrary?.search({ query: "J. K. Rowling" });
+zuuid.people.openlibrary?.fetch({ id: "OL23919A" });
 
 zuuid.read.openlibrary?.search({ query: "The Lord of the Rings" });
 zuuid.read.openlibrary?.fetch({ id: "OL82563W" });
@@ -288,6 +296,7 @@ npm run example:search -- movie "Fight Club"
 npm run example:search -- tv "Game of Thrones"
 npm run example:search -- people "Brad Pitt"
 npm run example:search -- book "The Lord of the Rings"
+npm run example:search -- author "J. K. Rowling"
 ```
 
 Fetch and transform a selected provider ID:
@@ -297,6 +306,7 @@ npm run example:fetch -- movie 550
 npm run example:fetch -- tv 1399
 npm run example:fetch -- people 287
 npm run example:fetch -- book OL82563W
+npm run example:fetch -- author OL23919A
 ```
 
 The examples write debug output to `data/tmdb/...` or `data/openlibrary/...`.
@@ -313,7 +323,7 @@ Core exports:
 - `createSourceRecord(input)`
 - `attachSourceMetadata(dataset, sourceRecord, confidence?)`
 
-TMDB exports:
+Provider exports:
 
 - `TmdbProvider`
 - `OpenLibraryProvider`
@@ -321,10 +331,12 @@ TMDB exports:
 - `transformTmdbTv(sourceRecord, options?)`
 - `transformTmdbPerson(sourceRecord, options?)`
 - `transformOpenLibraryBook(sourceRecord, options?)`
+- `transformOpenLibraryAuthor(sourceRecord, options?)`
 - `searchTmdbMovies(provider, input, options?)`
 - `searchTmdbTv(provider, input, options?)`
 - `searchTmdbPeople(provider, input, options?)`
 - `searchOpenLibraryBooks(provider, input, options?)`
+- `searchOpenLibraryAuthors(provider, input, options?)`
 
 ## Development
 

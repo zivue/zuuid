@@ -1,4 +1,12 @@
-import { OpenLibraryProvider, TmdbProvider, transformOpenLibraryBook, transformTmdbMovie, transformTmdbPerson, transformTmdbTv } from "../dist/index.js";
+import {
+  OpenLibraryProvider,
+  TmdbProvider,
+  transformOpenLibraryAuthor,
+  transformOpenLibraryBook,
+  transformTmdbMovie,
+  transformTmdbPerson,
+  transformTmdbTv
+} from "../dist/index.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 loadDotEnv();
@@ -17,6 +25,7 @@ if (requiresTmdbCredentials(category) && !bearerToken && !apiKey) {
   console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:fetch -- tv 1399");
   console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:fetch -- people 287");
   console.error("Open Library does not need credentials: npm run example:fetch -- book OL82563W");
+  console.error("Open Library does not need credentials: npm run example:fetch -- author OL23919A");
   process.exit(1);
 }
 
@@ -44,6 +53,9 @@ try {
   } else if (category === "book") {
     source = await openlibrary.fetchBookSourceRecord({ id });
     transformed = source ? await transformOpenLibraryBook(source, openlibrary.transformOptions()) : undefined;
+  } else if (category === "author") {
+    source = await openlibrary.fetchAuthorSourceRecord({ id });
+    transformed = source ? await transformOpenLibraryAuthor(source, openlibrary.transformOptions()) : undefined;
   } else {
     throw new Error(`Unsupported example category: ${category}`);
   }
@@ -70,7 +82,7 @@ writeDebugJson(category, id, source, transformed);
 console.log(JSON.stringify(transformed, null, 2));
 
 function writeDebugJson(category, id, sourceRecord, transformed) {
-  const provider = category === "book" ? "openlibrary" : "tmdb";
+  const provider = isOpenLibraryCategory(category) ? "openlibrary" : "tmdb";
   const directory = `data/${provider}/${category}`;
   mkdirSync(directory, { recursive: true });
 
@@ -151,6 +163,9 @@ function normalizeCategory(value) {
   if (normalized === "read") {
     return "book";
   }
+  if (normalized === "writer") {
+    return "author";
+  }
   return normalized;
 }
 
@@ -162,6 +177,8 @@ function defaultId(category) {
       return "287";
     case "book":
       return "OL82563W";
+    case "author":
+      return "OL23919A";
     default:
       return "550";
   }
@@ -169,4 +186,8 @@ function defaultId(category) {
 
 function requiresTmdbCredentials(category) {
   return category === "movie" || category === "tv" || category === "people";
+}
+
+function isOpenLibraryCategory(category) {
+  return category === "book" || category === "author";
 }

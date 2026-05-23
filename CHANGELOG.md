@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Added Open Library provider support for books.
+- Added Open Library provider support for books and authors.
 
 ## 0.1.0 - 2026-05-23
 

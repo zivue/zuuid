@@ -1,6 +1,13 @@
 import type { SearchResponse, ZuuidData, ZuuidSearchResult } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
 import {
+  fetchOpenLibraryAuthorSourceRecord,
+  searchOpenLibraryAuthors,
+  searchOpenLibraryAuthorSourceRecords,
+  transformOpenLibraryAuthor,
+  type FetchOpenLibraryAuthorInput
+} from "./author.js";
+import {
   fetchOpenLibraryBookSourceRecord,
   searchOpenLibraryBooks,
   searchOpenLibraryBookSourceRecords,
@@ -52,12 +59,29 @@ export class OpenLibraryProvider {
     return source ? transformOpenLibraryBook(source, this.transformOptions()) : undefined;
   }
 
+  async fetchAuthorSourceRecord(input: FetchOpenLibraryAuthorInput): Promise<SourceRecord | undefined> {
+    return fetchOpenLibraryAuthorSourceRecord(this, input);
+  }
+
+  async fetchAuthor(input: FetchOpenLibraryAuthorInput): Promise<ZuuidData | undefined> {
+    const source = await this.fetchAuthorSourceRecord(input);
+    return source ? transformOpenLibraryAuthor(source, this.transformOptions()) : undefined;
+  }
+
   async searchBookSourceRecords(input: OpenLibrarySearchInput): Promise<SearchResponse<SourceRecord>> {
     return searchOpenLibraryBookSourceRecords(this, input);
   }
 
   async searchBooks(input: OpenLibrarySearchInput): Promise<SearchResponse<ZuuidSearchResult>> {
     return searchOpenLibraryBooks(this, input, this.transformOptions());
+  }
+
+  async searchAuthorSourceRecords(input: OpenLibrarySearchInput): Promise<SearchResponse<SourceRecord>> {
+    return searchOpenLibraryAuthorSourceRecords(this, input);
+  }
+
+  async searchAuthors(input: OpenLibrarySearchInput): Promise<SearchResponse<ZuuidSearchResult>> {
+    return searchOpenLibraryAuthors(this, input);
   }
 
   transformOptions(): OpenLibraryTransformOptions {

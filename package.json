@@ -44,6 +44,10 @@
       "types": "./dist/providers/openlibrary/book.d.ts",
       "import": "./dist/providers/openlibrary/book.js"
     },
+    "./providers/openlibrary/author": {
+      "types": "./dist/providers/openlibrary/author.d.ts",
+      "import": "./dist/providers/openlibrary/author.js"
+    },
     "./providers/tmdb/movie": {
       "types": "./dist/providers/tmdb/movie.d.ts",
       "import": "./dist/providers/tmdb/movie.js"
