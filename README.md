@@ -1,10 +1,10 @@
 # @zivue/zuuid
 
-TypeScript helpers for fetching, searching, and transforming Zuuid datasets.
+Search, fetch, and normalize media metadata from external providers into a shared Zivue/Zuuid data shape.
 
-Zuuid is the metadata, search, and indexing substrate for Zivue/Stareto. This package focuses on the client-side model: provider-stable UUIDs, source records, and normalized Zuuid datasets.
+This package is meant to be used by apps that need provider-backed lookup and transformation, but do not want provider-specific response shapes leaking through the app. It currently supports TMDB movies, TV shows, and people, plus Open Library books.
 
-Storage, caching, object keys, and persistence belong in a layer outside this package.
+Storage, caching, indexing, review state, object-store keys, and persistence belong in a layer outside this package.
 
 ## Install
 
@@ -21,6 +21,9 @@ const zuuid = createZuuidClient({
   providers: {
     tmdb: {
       bearerToken: process.env.TMDB_BEARER_TOKEN!
+    },
+    openlibrary: {
+      // Open Library does not require credentials.
     }
   }
 });
@@ -29,45 +32,185 @@ const search = await zuuid.movie.tmdb?.search({ query: "Fight Club" });
 const selected = search?.results[0];
 const movie = selected ? await zuuid.movie.tmdb?.fetch({ id: selected.source.value }) : undefined;
 
-console.log(movie?.zuuid);
+console.log(movie?.primaryTitle);
+// Fight Club
 ```
 
-## Generate A ZUUID
+## What You Get
 
-Zuuid generation is UUID v5:
+The package has two main output shapes:
 
-```txt
-uuid_v5(provider_namespace, "<normalized-category>:<external_id>")
+- `SearchResponse<ZuuidSearchResult>` for search/list screens.
+- `ZuuidData` for full fetched and transformed datasets.
+
+Search is lightweight and paginated. Fetch returns the full normalized dataset for a selected provider ID.
+
+```ts
+const movies = await zuuid.movie.tmdb?.search({ query: "Fight Club" });
+
+console.log(movies?.pagination);
+// { page: 1, totalPages: 10, totalResults: 190 }
+
+console.log(movies?.results[0]);
+// {
+//   id: "1706d641-d381-5618-9425-d8cd8b35f898",
+//   zuuid: "1706d641-d381-5618-9425-d8cd8b35f898",
+//   category: "movie",
+//   title: "Fight Club",
+//   date: "1999-10-15",
+//   cover: "https://image.tmdb.org/t/p/w500/...",
+//   rating: 8.4,
+//   weight: 20.0,
+//   relationType: null,
+//   attribute: null,
+//   order: null,
+//   source: { source: "tmdb", category: "movie", value: "550" }
+// }
+```
+
+The full fetched dataset is flat and provider-normalized:
+
+```ts
+const movie = await zuuid.movie.tmdb?.fetch({ id: "550" });
+
+console.log(movie);
+// {
+//   zuuid,
+//   kind: "watch",
+//   category: "movie",
+//   primaryTitle: "Fight Club",
+//   primaryDate: "1999-10-15",
+//   rating,
+//   cover,
+//   aliases,
+//   descriptions,
+//   details,
+//   media,
+//   relations,
+//   recommendations,
+//   tags,
+//   externalIds,
+//   provenance
+// }
+```
+
+Search results, relations, and recommendations share the same lightweight list item fields: `id`, `zuuid`, `category`, `title`, `date`, `cover`, `rating`, `weight`, `relationType`, `attribute`, and `order`.
+
+## Supported Providers
+
+| Provider | Category | Search | Fetch | Transform |
+| --- | --- | --- | --- | --- |
+| TMDB | movie | yes | yes | yes |
+| TMDB | tv | yes | yes | yes |
+| TMDB | person | yes | yes | yes |
+| Open Library | book | yes | yes | yes |
+
+## TMDB Credentials
+
+`TmdbProvider` accepts either a TMDB API Read Access Token or a v3 API key:
+
+```ts
+import { TmdbProvider } from "@zivue/zuuid/providers/tmdb";
+
+const tmdb = new TmdbProvider({
+  bearerToken: process.env.TMDB_BEARER_TOKEN!
+});
+
+// or
+const tmdbWithApiKey = new TmdbProvider({
+  apiKey: process.env.TMDB_API_KEY!
+});
+```
+
+TMDB bearer tokens usually start with `eyJ...`; v3 API keys are shorter hex-like strings.
+
+## Search
+
+Use the category-first client facade when your app may have several providers:
+
+```ts
+const movies = await zuuid.movie.tmdb?.search({ query: "Fight Club" });
+const tvShows = await zuuid.tv.tmdb?.search({ query: "Game of Thrones" });
+const people = await zuuid.people.tmdb?.search({ query: "Brad Pitt" });
+const books = await zuuid.read.openlibrary?.search({ query: "The Lord of the Rings" });
+```
+
+Provider methods are also available directly:
+
+```ts
+const movies = await tmdb.searchMovies({ query: "Fight Club" });
+const tvShows = await tmdb.searchTv({ query: "Game of Thrones" });
+const people = await tmdb.searchPeople({ query: "Brad Pitt" });
 ```
 
 ```ts
-import { providerZuuid } from "@zivue/zuuid";
+import { OpenLibraryProvider } from "@zivue/zuuid/providers/openlibrary";
 
-const zuuid = await providerZuuid({
-  provider: "tmdb",
-  category: "movie",
-  externalId: "550"
-});
-
-console.log(zuuid);
-// 1706d641-d381-5618-9425-d8cd8b35f898
+const openlibrary = new OpenLibraryProvider();
+const books = await openlibrary.searchBooks({ query: "The Lord of the Rings" });
 ```
 
-`category` is trimmed and lowercased. `externalId` is trimmed but otherwise preserved.
-
-## Zuuid Dataset
+Search options include pagination and common TMDB filters:
 
 ```ts
-import { createZuuidData } from "@zivue/zuuid";
-
-const dataset = createZuuidData({
-  zuuid: "1706d641-d381-5618-9425-d8cd8b35f898",
-  category: "movie",
-  primaryTitle: "Fight Club"
+const movies = await tmdb.searchMovies({
+  query: "Fight Club",
+  page: 2,
+  includeAdult: false,
+  primaryReleaseYear: 1999
 });
 ```
 
-The dataset shape is intentionally flat:
+If you need the raw TMDB search payload wrapped as source records:
+
+```ts
+const rawMovies = await tmdb.searchMovieSourceRecords({ query: "Fight Club" });
+```
+
+## Fetch
+
+Fetch returns transformed `ZuuidData`:
+
+```ts
+const movie = await zuuid.movie.tmdb?.fetch({ id: 550 });
+const tv = await zuuid.tv.tmdb?.fetch({ id: 1399 });
+const person = await zuuid.people.tmdb?.fetch({ id: 287 });
+const book = await zuuid.read.openlibrary?.fetch({ id: "OL82563W" });
+```
+
+Direct provider methods are equivalent:
+
+```ts
+const movie = await tmdb.fetchMovie({ id: 550 });
+const tv = await tmdb.fetchTv({ id: 1399 });
+const person = await tmdb.fetchPerson({ id: 287 });
+
+const book = await openlibrary.fetchBook({ id: "OL82563W" });
+```
+
+## Raw Source Records And Transform
+
+For debugging, caching in your own layer, or custom transform timing, split fetch from transform:
+
+```ts
+import { transformTmdbMovie } from "@zivue/zuuid/providers/tmdb";
+
+const source = await tmdb.fetchMovieSourceRecord({ id: 550 });
+const movie = source ? await transformTmdbMovie(source, tmdb.transformOptions()) : undefined;
+```
+
+Category-specific imports are available:
+
+```ts
+import { transformTmdbMovie } from "@zivue/zuuid/providers/tmdb/movie";
+import { transformTmdbTv } from "@zivue/zuuid/providers/tmdb/tv";
+import { transformTmdbPerson } from "@zivue/zuuid/providers/tmdb/person";
+import { transformOpenLibraryBook } from "@zivue/zuuid/providers/openlibrary/book";
+```
+
+## Data Model
+
+`ZuuidData` is the full normalized dataset:
 
 ```ts
 type ZuuidData = {
@@ -90,257 +233,45 @@ type ZuuidData = {
 };
 ```
 
-Search results, relations, and recommendations use the same lightweight list item fields: `id`, `zuuid`, `category`, `title`, `date`, `cover`, `rating`, `weight`, `relationType`, `attribute`, and `order`. That lets transformed datasets and search results carry useful related-entity context before those related entities are fetched as full Zuuid datasets.
+`Detail.value` can be any JSON value, so details can hold strings, numbers, booleans, arrays, or structured objects without duplicating `value` and `data` fields.
 
-Backend-only concerns such as record versions, flags, review state, index state, and object-store metadata are intentionally not part of this package's dataset shape.
+## ZUUIDs
 
-## Source Metadata
-
-Source records are provider records before they are transformed into canonical entities. They carry the external provider key, raw JSON payload, content hash, and observation timestamps.
+Every fetched dataset and unified search result includes a `zuuid`. This is a deterministic UUID v5 generated from the provider namespace, category, and external ID. It gives your app a stable cross-provider identifier while the provider's own ID remains available in `source` or `externalIds`.
 
 ```ts
-import { attachSourceMetadata, createSourceRecord } from "@zivue/zuuid";
+import { providerZuuid } from "@zivue/zuuid";
 
-const source = await createSourceRecord({
-  source: { provider: "tmdb", category: "movie", externalId: "550" },
-  payload: { title: "Fight Club" },
-  observedAt: "2026-05-21T00:00:00.000Z"
+const zuuid = await providerZuuid({
+  provider: "tmdb",
+  category: "movie",
+  externalId: "550"
 });
-
-const withSource = attachSourceMetadata(dataset, source);
 ```
 
-`attachSourceMetadata` returns a new dataset with `externalIds` and `provenance` updated.
+Most applications do not need to call `providerZuuid` directly; search and fetch do it internally.
 
-## TMDB Movies, TV, And People
+## Client Design
 
-The first provider module supports fetching and transforming TMDB movies, TV shows, and people.
-
-| Provider | Category | Search | Fetch | Transform |
-| --- | --- | --- | --- | --- |
-| TMDB | movie | yes | yes | yes |
-| TMDB | tv | yes | yes | yes |
-| TMDB | person | yes | yes | yes |
+The client is stateless. It does not cache, persist, schedule, read environment variables, or write files. It only closes over provider configuration and exposes category/provider methods:
 
 ```ts
-import { TmdbProvider } from "@zivue/zuuid/providers/tmdb";
-
-const tmdb = new TmdbProvider({
-  bearerToken: process.env.TMDB_BEARER_TOKEN!
-});
-
-const movie = await tmdb.fetchMovie({ id: 550 });
-const tv = await tmdb.fetchTv({ id: 1399 });
-const person = await tmdb.fetchPerson({ id: 287 });
-
-console.log(movie?.zuuid);
-// 1706d641-d381-5618-9425-d8cd8b35f898
-```
-
-You can also split fetching from transformation:
-
-```ts
-import { TmdbProvider, transformTmdbMovie, transformTmdbPerson, transformTmdbTv } from "@zivue/zuuid/providers/tmdb";
-
-const source = await tmdb.fetchMovieSourceRecord({ id: 550 });
-const movie = source ? await transformTmdbMovie(source) : undefined;
-
-const tvSource = await tmdb.fetchTvSourceRecord({ id: 1399 });
-const tv = tvSource ? await transformTmdbTv(tvSource) : undefined;
-
-const personSource = await tmdb.fetchPersonSourceRecord({ id: 287 });
-const person = personSource ? await transformTmdbPerson(personSource) : undefined;
-```
-
-Search returns unified lightweight candidates. Use search to find candidate IDs, then fetch the selected item for the full transformed dataset:
-
-```ts
-const movies = await tmdb.searchMovies({ query: "Fight Club" });
-const tvShows = await tmdb.searchTv({ query: "Game of Thrones" });
-const people = await tmdb.searchPeople({ query: "Brad Pitt" });
-
-console.log(movies.pagination);
-// { page: 1, totalPages: 10, totalResults: 190 }
-
-const selectedMovie = movies.results[0];
-console.log(selectedMovie);
-// {
-//   id: "1706d641-d381-5618-9425-d8cd8b35f898",
-//   zuuid: "1706d641-d381-5618-9425-d8cd8b35f898",
-//   category: "movie",
-//   title: "Fight Club",
-//   date: "1999-10-15",
-//   cover: "https://image.tmdb.org/t/p/w500/...",
-//   rating: 8.4,
-//   weight: 20.0,
-//   relationType: null,
-//   attribute: null,
-//   order: null,
-//   source: { source: "tmdb", category: "movie", value: "550" }
-// }
-
-const fullMovie = selectedMovie ? await tmdb.fetchMovie({ id: selectedMovie.source.value }) : undefined;
-```
-
-Raw search source records are also available:
-
-```ts
-const rawMovies = await tmdb.searchMovieSourceRecords({ query: "Fight Club" });
-```
-
-Category-specific imports are also available:
-
-```ts
-import { transformTmdbMovie } from "@zivue/zuuid/providers/tmdb/movie";
-import { transformTmdbTv } from "@zivue/zuuid/providers/tmdb/tv";
-import { transformTmdbPerson } from "@zivue/zuuid/providers/tmdb/person";
-```
-
-`TmdbProvider` accepts either `{ bearerToken }` or `{ apiKey }`. TMDB bearer tokens are API Read Access Tokens and usually start with `eyJ...`; v3 API keys are shorter hex-like strings.
-
-## Client Instantiation
-
-For applications with multiple providers, use `createZuuidClient` to wire provider config once:
-
-```ts
-import { createZuuidClient } from "@zivue/zuuid";
-
-const zuuid = createZuuidClient({
-  providers: {
-    tmdb: {
-      bearerToken: process.env.TMDB_BEARER_TOKEN!
-    }
-    // Future movie providers can sit beside tmdb, e.g. omdb.
-  }
-});
-
-const movie = await zuuid.movie.tmdb?.fetch({ id: 550 });
-const tv = await zuuid.tv.tmdb?.fetch({ id: 1399 });
-const person = await zuuid.people.tmdb?.fetch({ id: 287 });
-```
-
-The config is provider-keyed because apps usually manage credentials per provider. The client facade is category-first, so multiple movie providers can live under `zuuid.movie`:
-
-```ts
+zuuid.movie.tmdb?.search({ query: "Fight Club" });
 zuuid.movie.tmdb?.fetch({ id: 550 });
+
+zuuid.tv.tmdb?.search({ query: "Game of Thrones" });
 zuuid.tv.tmdb?.fetch({ id: 1399 });
+
+zuuid.people.tmdb?.search({ query: "Brad Pitt" });
 zuuid.people.tmdb?.fetch({ id: 287 });
 
-zuuid.movie.tmdb?.search({ query: "Fight Club" });
-zuuid.tv.tmdb?.search({ query: "Game of Thrones" });
-zuuid.people.tmdb?.search({ query: "Brad Pitt" });
-// later: zuuid.movie.omdb?.fetch(...)
+zuuid.read.openlibrary?.search({ query: "The Lord of the Rings" });
+zuuid.read.openlibrary?.fetch({ id: "OL82563W" });
 ```
 
-The client is stateless: it does not cache, persist, schedule, or read environment variables. It only closes over provider configuration and exposes category/provider methods.
+## CLI Examples
 
-## API
-
-## Package Structure
-
-The source is split by Zuuid responsibility:
-
-- `identity.ts`: provider namespaces and UUID v5 ZUUID generation
-- `entity.ts`: flat Zuuid data types and category helpers
-- `client.ts`: stateless package instantiator for configured providers
-- `providers/<provider>/index.ts`: provider module barrel
-- `providers/<provider>/client.ts`: shared provider client/config
-- `providers/<provider>/<category>.ts`: category-specific fetch and transform helpers
-- `providers/tmdb/movie.ts`: TMDB movie fetch and transform helpers
-- `providers/tmdb/tv.ts`: TMDB TV fetch and transform helpers
-- `providers/tmdb/person.ts`: TMDB person fetch and transform helpers
-- `source.ts`: source records, external IDs, and provenance
-- `hash.ts`: stable payload hashing
-- `uuid.ts`: UUID parsing/normalization and UUID v5 internals
-- `types.ts`: shared JSON value types
-- `index.ts`: public barrel exports
-
-### `providerZuuid(input)`
-
-Generates a deterministic ZUUID for a provider/category/external ID.
-
-### `providerNamespace(provider)`
-
-Returns the UUID namespace configured for a known provider.
-
-### `createZuuidData(input)`
-
-Creates a normalized Zuuid dataset.
-
-### `createSourceRecord(input)`
-
-Creates a source record and computes the SHA-256 payload hash used for provenance.
-
-### `attachSourceMetadata(dataset, sourceRecord, confidence?)`
-
-Returns a new dataset with external ID and provenance attached.
-
-### `TmdbProvider`
-
-Fetches TMDB source records and transforms them into `ZuuidData`.
-
-### `transformTmdbMovie(sourceRecord, options?)`
-
-Transforms an already-fetched TMDB movie source record into `ZuuidData`.
-
-### `transformTmdbTv(sourceRecord, options?)`
-
-Transforms an already-fetched TMDB TV source record into `ZuuidData`.
-
-### `transformTmdbPerson(sourceRecord, options?)`
-
-Transforms an already-fetched TMDB person source record into `ZuuidData`.
-
-### `categoryFor(value)`
-
-Normalizes a category and derives its entity kind.
-
-### `kindForCategory(category)`
-
-Maps categories such as `movie`, `book`, `game`, `restaurant`, and `person` to broad kinds such as `watch`, `read`, `play`, `visit`, and `people`.
-
-## Development
-
-```sh
-npm install
-npm test
-```
-
-## Try It
-
-Fetch and transform TMDB movie `550`:
-
-```sh
-TMDB_BEARER_TOKEN=... npm run example:tmdb-fetch -- movie 550
-```
-
-or:
-
-```sh
-TMDB_API_KEY=... npm run example:tmdb-fetch -- movie 550
-```
-
-Fetch and transform TMDB TV show `1399`:
-
-```sh
-TMDB_BEARER_TOKEN=... npm run example:tmdb-fetch -- tv 1399
-```
-
-Fetch and transform TMDB person `287`:
-
-```sh
-TMDB_BEARER_TOKEN=... npm run example:tmdb-fetch -- people 287
-```
-
-Search TMDB and print unified search results:
-
-```sh
-npm run example:tmdb-search -- movie "Fight Club"
-npm run example:tmdb-search -- tv "Game of Thrones"
-npm run example:tmdb-search -- people "Brad Pitt"
-```
-
-The example also reads `.env` from the repo root:
+The examples read `.env` from the repo root:
 
 ```sh
 TMDB_BEARER_TOKEN=...
@@ -350,19 +281,59 @@ TMDB_READ_ACCESS_TOKEN=...
 TMDB_API_KEY=...
 ```
 
-If both token and API key are present, the example uses the bearer token first. TMDB's API Read Access Token usually starts with `eyJ...`; the v3 API key is a shorter hex-like string.
+Search a provider and print unified search results:
 
-If `TMDB_API_KEY` accidentally contains a token starting with `eyJ`, the example treats it as a bearer token and sends it as `Authorization: Bearer ...`.
-
-The example writes debug output to:
-
-```txt
-data/tmdb/movie/550.raw.json
-data/tmdb/movie/550.zuuid.json
-data/tmdb/tv/1399.raw.json
-data/tmdb/tv/1399.zuuid.json
-data/tmdb/people/287.raw.json
-data/tmdb/people/287.zuuid.json
-data/tmdb/search/movie/fight-club.zuuid-search.json
-data/tmdb/search/movie/fight-club.raw-search.json
+```sh
+npm run example:search -- movie "Fight Club"
+npm run example:search -- tv "Game of Thrones"
+npm run example:search -- people "Brad Pitt"
+npm run example:search -- book "The Lord of the Rings"
 ```
+
+Fetch and transform a selected provider ID:
+
+```sh
+npm run example:fetch -- movie 550
+npm run example:fetch -- tv 1399
+npm run example:fetch -- people 287
+npm run example:fetch -- book OL82563W
+```
+
+The examples write debug output to `data/tmdb/...` or `data/openlibrary/...`.
+
+## API Reference
+
+Core exports:
+
+- `createZuuidClient(config)`
+- `providerZuuid(input)`
+- `providerNamespace(provider)`
+- `categoryFor(value)`
+- `kindForCategory(category)`
+- `createSourceRecord(input)`
+- `attachSourceMetadata(dataset, sourceRecord, confidence?)`
+
+TMDB exports:
+
+- `TmdbProvider`
+- `OpenLibraryProvider`
+- `transformTmdbMovie(sourceRecord, options?)`
+- `transformTmdbTv(sourceRecord, options?)`
+- `transformTmdbPerson(sourceRecord, options?)`
+- `transformOpenLibraryBook(sourceRecord, options?)`
+- `searchTmdbMovies(provider, input, options?)`
+- `searchTmdbTv(provider, input, options?)`
+- `searchTmdbPeople(provider, input, options?)`
+- `searchOpenLibraryBooks(provider, input, options?)`
+
+## Development
+
+```sh
+npm install
+npm test
+npm pack --dry-run
+```
+
+## Package Boundary
+
+This package intentionally does not include storage, caching, object-store metadata, record versions, review state, index state, or backend flags. Those concerns should live in the consuming application or service.

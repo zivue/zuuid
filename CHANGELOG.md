@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.1.0
+## Unreleased
+
+- Added Open Library provider support for books.
+
+## 0.1.0 - 2026-05-23
 
 - Added provider-stable ZUUID generation using UUID v5.
 - Added flat `ZuuidData` model with source metadata and provenance.

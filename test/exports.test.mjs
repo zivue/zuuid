@@ -7,6 +7,8 @@ test("package root exports the public API", async () => {
   assert.equal(typeof root.createZuuidClient, "function");
   assert.equal(typeof root.providerZuuid, "function");
   assert.equal(typeof root.TmdbProvider, "function");
+  assert.equal(typeof root.OpenLibraryProvider, "function");
+  assert.equal(typeof root.transformOpenLibraryBook, "function");
   assert.equal(typeof root.transformTmdbMovie, "function");
   assert.equal(typeof root.transformTmdbTv, "function");
   assert.equal(typeof root.transformTmdbPerson, "function");
@@ -24,10 +26,19 @@ test("tmdb provider subpath exports category helpers", async () => {
   assert.equal(typeof tmdb.searchTmdbPeople, "function");
 });
 
+test("openlibrary provider subpath exports book helpers", async () => {
+  const openlibrary = await import("../dist/providers/openlibrary/index.js");
+
+  assert.equal(typeof openlibrary.OpenLibraryProvider, "function");
+  assert.equal(typeof openlibrary.transformOpenLibraryBook, "function");
+  assert.equal(typeof openlibrary.searchOpenLibraryBooks, "function");
+});
+
 test("category subpaths are importable", async () => {
   const movie = await import("../dist/providers/tmdb/movie.js");
   const tv = await import("../dist/providers/tmdb/tv.js");
   const person = await import("../dist/providers/tmdb/person.js");
+  const book = await import("../dist/providers/openlibrary/book.js");
 
   assert.equal(typeof movie.transformTmdbMovie, "function");
   assert.equal(typeof movie.searchTmdbMovies, "function");
@@ -35,6 +46,8 @@ test("category subpaths are importable", async () => {
   assert.equal(typeof tv.searchTmdbTv, "function");
   assert.equal(typeof person.transformTmdbPerson, "function");
   assert.equal(typeof person.searchTmdbPeople, "function");
+  assert.equal(typeof book.transformOpenLibraryBook, "function");
+  assert.equal(typeof book.searchOpenLibraryBooks, "function");
 });
 
 test("package self-reference exports match npm entry points", async () => {
@@ -43,10 +56,14 @@ test("package self-reference exports match npm entry points", async () => {
   const movie = await import("@zivue/zuuid/providers/tmdb/movie");
   const tv = await import("@zivue/zuuid/providers/tmdb/tv");
   const person = await import("@zivue/zuuid/providers/tmdb/person");
+  const openlibrary = await import("@zivue/zuuid/providers/openlibrary");
+  const book = await import("@zivue/zuuid/providers/openlibrary/book");
 
   assert.equal(typeof root.createZuuidClient, "function");
   assert.equal(typeof tmdb.TmdbProvider, "function");
   assert.equal(typeof movie.transformTmdbMovie, "function");
   assert.equal(typeof tv.transformTmdbTv, "function");
   assert.equal(typeof person.transformTmdbPerson, "function");
+  assert.equal(typeof openlibrary.OpenLibraryProvider, "function");
+  assert.equal(typeof book.transformOpenLibraryBook, "function");
 });

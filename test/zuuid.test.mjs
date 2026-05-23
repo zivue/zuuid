@@ -8,9 +8,11 @@ import {
   createZuuidData,
   externalIdFromSource,
   kindForCategory,
+  OpenLibraryProvider,
   providerNamespace,
   providerZuuid,
   TmdbProvider,
+  transformOpenLibraryBook,
   transformTmdbMovie,
   transformTmdbPerson,
   transformTmdbTv
@@ -702,4 +704,180 @@ test("createZuuidClient exposes raw category search source record facades", asyn
   assert.deepEqual(tv?.results[0]?.source, { provider: "tmdb", category: "tv", externalId: "1" });
   assert.deepEqual(people?.results[0]?.source, { provider: "tmdb", category: "person", externalId: "1" });
   assert.deepEqual(movies?.pagination, { page: 1, totalPages: 0, totalResults: 0 });
+});
+
+test("transformOpenLibraryBook maps an Open Library work source record into Zuuid data", async () => {
+  const source = await createSourceRecord({
+    source: { provider: "openlibrary", category: "book", externalId: "OL82563W" },
+    payload: {
+      work: {
+        key: "/works/OL82563W",
+        title: "The Lord of the Rings",
+        description: { value: "An epic high-fantasy novel." },
+        first_publish_date: "1954",
+        covers: [12345],
+        subjects: ["Fantasy"],
+        subject_people: ["Frodo Baggins"],
+        authors: [{ author: { key: "/authors/OL26320A" } }]
+      },
+      editions: {
+        size: 120,
+        entries: [
+          {
+            publish_date: "July 29, 1954",
+            publishers: ["George Allen & Unwin"],
+            number_of_pages: 423,
+            isbn_10: ["0261103253"]
+          }
+        ]
+      },
+      authors: [{ key: "/authors/OL26320A", name: "J. R. R. Tolkien", birth_date: "1892" }],
+      ratings: { summary: { average: 4.4, count: 25 } }
+    },
+    observedAt: "2026-05-23T09:00:00.000Z"
+  });
+
+  const data = await transformOpenLibraryBook(source);
+
+  assert.equal(data.primaryTitle, "The Lord of the Rings");
+  assert.equal(data.kind, "read");
+  assert.equal(data.category, "book");
+  assert.equal(data.primaryDate, "1954");
+  assert.equal(data.rating, 4.4);
+  assert.equal(data.cover?.includes("covers.openlibrary.org"), true);
+  assert.equal(data.descriptions.some((description) => description.value.includes("high-fantasy")), true);
+  assert.equal(data.tags.includes("fantasy"), true);
+  assert.equal(data.details.some((detail) => detail.key === "subjects" && detail.value?.[0] === "Fantasy"), true);
+  assert.equal(
+    data.relations.some(
+      (relation) =>
+        relation.category === "author" &&
+        relation.relationType === "authored_by" &&
+        relation.externalId === "OL26320A" &&
+        relation.title === "J. R. R. Tolkien"
+    ),
+    true
+  );
+  assert.equal(data.details.some((detail) => detail.key === "publishers" && detail.value?.[0] === "George Allen & Unwin"), true);
+  assert.equal(data.details.some((detail) => detail.key === "number_of_pages" && detail.value === 423), true);
+  assert.equal(data.details.some((detail) => detail.key === "edition_count" && detail.value === 120), true);
+  assert.equal(data.details.some((detail) => detail.key === "rating_count" && detail.value === 25), true);
+  assert.equal(data.externalIds.some((id) => id.source === "openlibrary" && id.value === "OL82563W"), true);
+});
+
+test("OpenLibraryProvider fetchBookSourceRecord requests enriched book JSON", async () => {
+  const requestedUrls = [];
+  const provider = new OpenLibraryProvider({
+    fetch: async (url) => {
+      const requestedUrl = new URL(url.toString());
+      requestedUrls.push(requestedUrl);
+      const payload =
+        requestedUrl.pathname === "/works/OL82563W.json"
+          ? {
+              key: "/works/OL82563W",
+              title: "The Lord of the Rings",
+              authors: [{ author: { key: "/authors/OL26320A" } }]
+            }
+          : requestedUrl.pathname === "/works/OL82563W/editions.json"
+            ? { size: 1, entries: [{ key: "/books/OL7353617M", publish_date: "1954" }] }
+            : requestedUrl.pathname === "/works/OL82563W/ratings.json"
+              ? { summary: { average: 4.4, count: 25 } }
+              : { key: "/authors/OL26320A", name: "J. R. R. Tolkien" };
+      return new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+  });
+
+  const source = await provider.fetchBookSourceRecord({ id: "/works/OL82563W" });
+
+  assert.deepEqual(
+    requestedUrls.map((url) => url.pathname),
+    ["/works/OL82563W.json", "/works/OL82563W/editions.json", "/works/OL82563W/ratings.json", "/authors/OL26320A.json"]
+  );
+  assert.equal(requestedUrls[1].searchParams.get("limit"), "10");
+  assert.deepEqual(source?.source, { provider: "openlibrary", category: "book", externalId: "OL82563W" });
+  assert.equal(source?.payload.work.title, "The Lord of the Rings");
+  assert.equal(source?.payload.editions.entries[0]?.publish_date, "1954");
+  assert.equal(source?.payload.ratings.summary.average, 4.4);
+  assert.equal(source?.payload.authors[0]?.name, "J. R. R. Tolkien");
+});
+
+test("OpenLibraryProvider searches unified and raw book results", async () => {
+  const requestedUrls = [];
+  const provider = new OpenLibraryProvider({
+    fetch: async (url) => {
+      const requestedUrl = new URL(url.toString());
+      requestedUrls.push(requestedUrl);
+      return new Response(
+        JSON.stringify({
+          numFound: 42,
+          start: 0,
+          docs: [
+            {
+              key: "/works/OL82563W",
+              title: "The Lord of the Rings",
+              author_name: ["J. R. R. Tolkien"],
+              first_publish_year: 1954,
+              cover_i: 12345,
+              ratings_average: 4.5,
+              edition_count: 120
+            }
+          ]
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+  });
+
+  const search = await provider.searchBooks({ query: "lord rings", page: 2, limit: 10 });
+  const raw = await provider.searchBookSourceRecords({ query: "lord rings", page: 2, limit: 10 });
+
+  assert.equal(requestedUrls[0].pathname, "/search.json");
+  assert.equal(requestedUrls[0].searchParams.get("q"), "lord rings");
+  assert.equal(requestedUrls[0].searchParams.get("page"), "2");
+  assert.equal(requestedUrls[0].searchParams.get("limit"), "10");
+  assert.equal(search.results[0]?.title, "The Lord of the Rings");
+  assert.equal(search.results[0]?.category, "book");
+  assert.equal(search.results[0]?.date, "1954");
+  assert.equal(search.results[0]?.rating, 4.5);
+  assert.equal(search.results[0]?.weight, 120);
+  assert.equal(search.results[0]?.attribute, "J. R. R. Tolkien");
+  assert.deepEqual(search.results[0]?.source, { source: "openlibrary", category: "book", value: "OL82563W" });
+  assert.deepEqual(search.pagination, { page: 2, totalPages: 5, totalResults: 42 });
+  assert.deepEqual(raw.results[0]?.source, { provider: "openlibrary", category: "book", externalId: "OL82563W" });
+});
+
+test("createZuuidClient exposes openlibrary read facade", async () => {
+  const requestedPaths = [];
+  const client = createZuuidClient({
+    providers: {
+      openlibrary: {
+        fetch: async (url) => {
+          const requestedUrl = new URL(url.toString());
+          requestedPaths.push(requestedUrl.pathname);
+          const payload =
+            requestedUrl.pathname === "/search.json"
+              ? { docs: [{ key: "/works/OL82563W", title: "Book" }] }
+              : requestedUrl.pathname === "/works/OL82563W/editions.json"
+                ? { entries: [] }
+                : requestedUrl.pathname === "/works/OL82563W/ratings.json"
+                  ? { summary: { average: 3.5, count: 2 } }
+                  : { title: "Book" };
+          return new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { "content-type": "application/json" }
+          });
+        }
+      }
+    }
+  });
+
+  const search = await client.read.openlibrary?.search({ query: "book" });
+  const source = await client.read.openlibrary?.fetchSourceRecord({ id: "OL82563W" });
+
+  assert.deepEqual(requestedPaths, ["/search.json", "/works/OL82563W.json", "/works/OL82563W/editions.json", "/works/OL82563W/ratings.json"]);
+  assert.equal(search?.results[0]?.title, "Book");
+  assert.deepEqual(source?.source, { provider: "openlibrary", category: "book", externalId: "OL82563W" });
 });

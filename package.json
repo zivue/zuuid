@@ -18,7 +18,8 @@
     "uuid-v5",
     "metadata",
     "dataset",
-    "tmdb"
+    "tmdb",
+    "openlibrary"
   ],
   "files": [
     "dist",
@@ -34,6 +35,14 @@
     "./providers/tmdb": {
       "types": "./dist/providers/tmdb/index.d.ts",
       "import": "./dist/providers/tmdb/index.js"
+    },
+    "./providers/openlibrary": {
+      "types": "./dist/providers/openlibrary/index.d.ts",
+      "import": "./dist/providers/openlibrary/index.js"
+    },
+    "./providers/openlibrary/book": {
+      "types": "./dist/providers/openlibrary/book.d.ts",
+      "import": "./dist/providers/openlibrary/book.js"
     },
     "./providers/tmdb/movie": {
       "types": "./dist/providers/tmdb/movie.d.ts",
@@ -59,9 +68,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dist",
-    "example:tmdb": "npm run example:tmdb-fetch --",
-    "example:tmdb-fetch": "npm run build && node examples/tmdb-fetch.mjs",
-    "example:tmdb-search": "npm run build && node examples/tmdb-search.mjs",
+    "example:fetch": "npm run build && node examples/fetch.mjs",
+    "example:search": "npm run build && node examples/search.mjs",
     "prepublishOnly": "npm run clean && npm run test",
     "test": "npm run build && node --test test/*.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"

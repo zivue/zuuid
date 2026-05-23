@@ -1,4 +1,4 @@
-import { createZuuidClient, TmdbProvider } from "../dist/index.js";
+import { createZuuidClient, OpenLibraryProvider, TmdbProvider } from "../dist/index.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 loadDotEnv();
@@ -7,19 +7,28 @@ const category = normalizeCategory(process.argv[2] ?? "movie");
 const query = process.argv.slice(3).join(" ").trim() || defaultQuery(category);
 const credentials = tmdbCredentialsFromEnv();
 
-if (!credentials) {
+if (requiresTmdbCredentials(category) && !credentials) {
   console.error("Set TMDB_BEARER_TOKEN, TMDB_READ_ACCESS_TOKEN, or TMDB_API_KEY before running this example.");
-  console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:tmdb-search -- movie \"Fight Club\"");
-  console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:tmdb-search -- tv \"Game of Thrones\"");
-  console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:tmdb-search -- people \"Brad Pitt\"");
+  console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:search -- movie \"Fight Club\"");
+  console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:search -- tv \"Game of Thrones\"");
+  console.error("Usage: TMDB_BEARER_TOKEN=... npm run example:search -- people \"Brad Pitt\"");
+  console.error("Open Library does not need credentials: npm run example:search -- book \"The Lord of the Rings\"");
   process.exit(1);
 }
 
-const zuuid = createZuuidClient({ providers: { tmdb: credentials.config } });
-const tmdb = new TmdbProvider(credentials.config);
+const zuuid = createZuuidClient({
+  providers: {
+    ...(credentials ? { tmdb: credentials.config } : {}),
+    openlibrary: {}
+  }
+});
+const tmdb = credentials ? new TmdbProvider(credentials.config) : undefined;
+const openlibrary = new OpenLibraryProvider();
 
-console.error(`Using TMDB ${credentials.mode} from environment.`);
-if (credentials.apiKeyLooksLikeBearerToken) {
+if (requiresTmdbCredentials(category) && credentials) {
+  console.error(`Using TMDB ${credentials.mode} from environment.`);
+}
+if (requiresTmdbCredentials(category) && credentials?.apiKeyLooksLikeBearerToken) {
   console.error("TMDB_API_KEY looks like an API Read Access Token, so it is being sent as a bearer token.");
 }
 
@@ -51,26 +60,31 @@ async function searchUnified(client, category, query) {
       return client.tv.tmdb?.search({ query }) ?? emptySearchResponse();
     case "people":
       return client.people.tmdb?.search({ query }) ?? emptySearchResponse();
+    case "book":
+      return client.read.openlibrary?.search({ query }) ?? emptySearchResponse();
     default:
-      throw new Error(`Unsupported TMDB search category: ${category}`);
+      throw new Error(`Unsupported search category: ${category}`);
   }
 }
 
 async function searchRaw(tmdb, category, query) {
   switch (category) {
     case "movie":
-      return tmdb.searchMovieSourceRecords({ query });
+      return tmdb?.searchMovieSourceRecords({ query }) ?? emptySearchResponse();
     case "tv":
-      return tmdb.searchTvSourceRecords({ query });
+      return tmdb?.searchTvSourceRecords({ query }) ?? emptySearchResponse();
     case "people":
-      return tmdb.searchPersonSourceRecords({ query });
+      return tmdb?.searchPersonSourceRecords({ query }) ?? emptySearchResponse();
+    case "book":
+      return openlibrary.searchBookSourceRecords({ query });
     default:
-      throw new Error(`Unsupported TMDB search category: ${category}`);
+      throw new Error(`Unsupported search category: ${category}`);
   }
 }
 
 function writeDebugJson(category, query, results, raw) {
-  const directory = `data/tmdb/search/${category}`;
+  const provider = category === "book" ? "openlibrary" : "tmdb";
+  const directory = `data/${provider}/search/${category}`;
   const slug = querySlug(query);
   mkdirSync(directory, { recursive: true });
 
@@ -97,6 +111,9 @@ function normalizeCategory(value) {
   if (normalized === "person") {
     return "people";
   }
+  if (normalized === "read") {
+    return "book";
+  }
   return normalized;
 }
 
@@ -108,6 +125,8 @@ function defaultQuery(category) {
       return "Game of Thrones";
     case "people":
       return "Brad Pitt";
+    case "book":
+      return "The Lord of the Rings";
     default:
       return "Fight Club";
   }
@@ -204,4 +223,8 @@ function querySlug(value) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80) || "search";
+}
+
+function requiresTmdbCredentials(category) {
+  return category === "movie" || category === "tv" || category === "people";
 }
