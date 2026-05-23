@@ -1,12 +1,14 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
 import { addAlias, addDescription, addDetail, addMedia, addRelation, addTag, arrayField, baseDataFromSource, datePrefix, finalizeData, nestedString, objectPayload, stringField, stripHtml, valueAsString } from "../common.js";
-import { JIKAN_ANIME_CATEGORY, JIKAN_CHARACTER_CATEGORY, JIKAN_MANGA_CATEGORY, JIKAN_PERSON_CATEGORY, JIKAN_PROVIDER } from "./constants.js";
+import { JIKAN_ANIME_CATEGORY, JIKAN_CHARACTER_CATEGORY, JIKAN_MAGAZINE_CATEGORY, JIKAN_MANGA_CATEGORY, JIKAN_PERSON_CATEGORY, JIKAN_PRODUCER_CATEGORY, JIKAN_PROVIDER } from "./constants.js";
 
 export async function transformJikan(source: SourceRecord): Promise<ZuuidData> {
   if (source.source.provider !== JIKAN_PROVIDER) throw new Error(`unsupported Jikan source: ${source.source.provider}:${source.source.category}`);
   if (source.source.category === JIKAN_ANIME_CATEGORY || source.source.category === JIKAN_MANGA_CATEGORY) return transformJikanTitle(source, source.source.category);
   if (source.source.category === JIKAN_CHARACTER_CATEGORY || source.source.category === JIKAN_PERSON_CATEGORY) return transformJikanPersonish(source, source.source.category);
+  if (source.source.category === JIKAN_PRODUCER_CATEGORY) return transformJikanProducer(source);
+  if (source.source.category === JIKAN_MAGAZINE_CATEGORY) return transformJikanMagazine(source);
   throw new Error(`unsupported Jikan source: ${source.source.provider}:${source.source.category}`);
 }
 
@@ -45,6 +47,38 @@ export async function transformJikanPersonish(source: SourceRecord, sourceCatego
   addDescription(data, JIKAN_PROVIDER, stringField(payload, "about"), "en");
   addCover(data, payload, "profile");
   for (const key of ["favorites", "given_name", "family_name", "alternate_names"]) addDetail(data, JIKAN_PROVIDER, key, valueAsString(payload[key]));
+  return finalizeData(data, source);
+}
+
+export async function transformJikanProducer(source: SourceRecord): Promise<ZuuidData> {
+  const payload = objectPayload(source.payload);
+  const id = source.source.externalId.trim() || valueAsString(payload.mal_id);
+  const title = stringField(payload, "title") ?? stringField(payload, "name");
+  if (!id) throw new Error("missing required Jikan producer field: mal_id");
+  if (!title) throw new Error("missing required Jikan producer field: name");
+  const data = await baseDataFromSource(source, JIKAN_PROVIDER, JIKAN_PRODUCER_CATEGORY, "organization", id, title);
+  data.primaryDate = datePrefix(stringField(payload, "established"));
+  addTitleAliases(data, payload, title);
+  addDescription(data, JIKAN_PROVIDER, stringField(payload, "about"), "en");
+  addCover(data, payload, "logo");
+  for (const key of ["count", "favorites", "established"]) addDetail(data, JIKAN_PROVIDER, key, valueAsString(payload[key]));
+  addTag(data, "producer");
+  addTag(data, "anime");
+  return finalizeData(data, source);
+}
+
+export async function transformJikanMagazine(source: SourceRecord): Promise<ZuuidData> {
+  const payload = objectPayload(source.payload);
+  const id = source.source.externalId.trim() || valueAsString(payload.mal_id);
+  const title = stringField(payload, "title") ?? stringField(payload, "name");
+  if (!id) throw new Error("missing required Jikan magazine field: mal_id");
+  if (!title) throw new Error("missing required Jikan magazine field: name");
+  const data = await baseDataFromSource(source, JIKAN_PROVIDER, JIKAN_MAGAZINE_CATEGORY, JIKAN_MAGAZINE_CATEGORY, id, title);
+  addTitleAliases(data, payload, title);
+  addDescription(data, JIKAN_PROVIDER, stringField(payload, "about"), "en");
+  for (const key of ["count", "favorites"]) addDetail(data, JIKAN_PROVIDER, key, valueAsString(payload[key]));
+  addTag(data, "magazine");
+  addTag(data, "manga");
   return finalizeData(data, source);
 }
 

@@ -196,7 +196,10 @@ export function kindForCategory(category: string): EntityKind {
     case "article":
     case "web_page":
     case "comic":
+    case "issue":
+    case "story_arc":
     case "manga":
+    case "magazine":
     case "paper":
     case "blog_post":
       return "read";
@@ -204,10 +207,12 @@ export function kindForCategory(category: string): EntityKind {
     case "videogame":
     case "boardgame":
     case "platform":
+    case "equipment":
       return "play";
     case "place":
     case "location":
     case "venue":
+    case "place":
     case "restaurant":
     case "route":
     case "city":

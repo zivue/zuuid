@@ -1,10 +1,10 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
 import { addAlias, addDescription, addDetail, addMedia, addTag, arrayField, baseDataFromSource, finalizeData, nestedString, objectPayload, stringField, valueAsString } from "../common.js";
-import { OPENSTREETMAP_CITY_CATEGORY, OPENSTREETMAP_COUNTRY_CATEGORY, OPENSTREETMAP_PROVIDER } from "./constants.js";
+import { OPENSTREETMAP_CITY_CATEGORY, OPENSTREETMAP_COUNTRY_CATEGORY, OPENSTREETMAP_PLACE_CATEGORY, OPENSTREETMAP_PROVIDER, OPENSTREETMAP_VENUE_CATEGORY } from "./constants.js";
 
 export async function transformOpenStreetMapPlace(source: SourceRecord): Promise<ZuuidData> {
-  if (source.source.provider !== OPENSTREETMAP_PROVIDER || ![OPENSTREETMAP_CITY_CATEGORY, OPENSTREETMAP_COUNTRY_CATEGORY].includes(source.source.category)) {
+  if (source.source.provider !== OPENSTREETMAP_PROVIDER || ![OPENSTREETMAP_CITY_CATEGORY, OPENSTREETMAP_COUNTRY_CATEGORY, OPENSTREETMAP_PLACE_CATEGORY, OPENSTREETMAP_VENUE_CATEGORY].includes(source.source.category)) {
     throw new Error(`unsupported OpenStreetMap source: ${source.source.provider}:${source.source.category}`);
   }
   const payload = objectPayload(source.payload);
@@ -24,6 +24,10 @@ export async function transformOpenStreetMapPlace(source: SourceRecord): Promise
   addDetail(data, OPENSTREETMAP_PROVIDER, "longitude", stringField(payload, "lon"));
   for (const [key, path] of [["country", ["address", "country"]], ["country_code", ["address", "country_code"]], ["state", ["address", "state"]], ["postal_code", ["address", "postcode"]]] as const) addDetail(data, OPENSTREETMAP_PROVIDER, key, nestedString(payload, [...path]));
   addDetail(data, OPENSTREETMAP_PROVIDER, "city", nestedString(payload, ["address", "city"]) ?? nestedString(payload, ["address", "town"]) ?? nestedString(payload, ["address", "village"]));
+  addDetail(data, OPENSTREETMAP_PROVIDER, "road", nestedString(payload, ["address", "road"]));
+  addDetail(data, OPENSTREETMAP_PROVIDER, "house_number", nestedString(payload, ["address", "house_number"]));
+  addDetail(data, OPENSTREETMAP_PROVIDER, "class", stringField(payload, "class"));
+  addDetail(data, OPENSTREETMAP_PROVIDER, "type", stringField(payload, "type"));
   const bbox = arrayField(payload, "boundingbox").filter((value): value is string => typeof value === "string").join(",");
   addDetail(data, OPENSTREETMAP_PROVIDER, "bounding_box", bbox || undefined);
   for (const key of ["population", "wikidata", "wikipedia"]) addDetail(data, OPENSTREETMAP_PROVIDER, key, nestedString(payload, ["extratags", key]));

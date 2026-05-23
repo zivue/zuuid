@@ -4,6 +4,7 @@ import {
   TmdbProvider,
   transformComicVine,
   transformGamesDbGame,
+  transformGamesDbPlatform,
   transformJikan,
   transformMusicBrainzArtist,
   transformMusicBrainzLabel,
@@ -21,6 +22,7 @@ import {
   transformTmdbMovie,
   transformTmdbPerson,
   transformTmdbTv,
+  transformWgerEquipment,
   transformWgerExercise
 } from "../dist/index.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -117,6 +119,8 @@ async function transformFixtureSource(sourceRecord) {
   switch (`${sourceRecord.source.provider}:${sourceRecord.source.category}`) {
     case "gamesdb:game":
       return transformGamesDbGame(sourceRecord);
+    case "gamesdb:platform":
+      return transformGamesDbPlatform(sourceRecord);
     case "musicbrainz:release":
       return transformMusicBrainzRelease(sourceRecord);
     case "musicbrainz:release-group":
@@ -130,12 +134,16 @@ async function transformFixtureSource(sourceRecord) {
     case "musicbrainz:work":
       return transformMusicBrainzWork(sourceRecord);
     case "comicvine:volume":
+    case "comicvine:issue":
+    case "comicvine:story_arc":
     case "comicvine:character":
     case "comicvine:person":
     case "comicvine:publisher":
       return transformComicVine(sourceRecord);
     case "jikan:anime":
     case "jikan:manga":
+    case "jikan:producer":
+    case "jikan:magazine":
     case "jikan:character":
     case "jikan:person":
       return transformJikan(sourceRecord);
@@ -143,11 +151,15 @@ async function transformFixtureSource(sourceRecord) {
       return transformOpenFoodFactsProduct(sourceRecord);
     case "openstreetmap:city":
     case "openstreetmap:country":
+    case "openstreetmap:place":
+    case "openstreetmap:venue":
       return transformOpenStreetMapPlace(sourceRecord);
     case "podcast:podcast":
       return transformPodcast(sourceRecord);
     case "wger:exercise":
       return transformWgerExercise(sourceRecord);
+    case "wger:equipment":
+      return transformWgerEquipment(sourceRecord);
     case "ticketmaster:event":
     case "ticketmaster:venue":
     case "ticketmaster:attraction":
@@ -185,6 +197,7 @@ function fixtureProviderForTarget(target) {
   }
   switch (target.category) {
     case "game":
+    case "platform":
       return "gamesdb";
     case "release":
     case "release-group":
@@ -194,20 +207,27 @@ function fixtureProviderForTarget(target) {
     case "work":
       return "musicbrainz";
     case "volume":
+    case "issue":
+    case "story_arc":
     case "publisher":
       return "comicvine";
     case "anime":
     case "manga":
+    case "producer":
+    case "magazine":
     case "character":
       return "jikan";
     case "product":
       return "openfoodfacts";
     case "city":
     case "country":
+    case "place":
+    case "venue":
       return "openstreetmap";
     case "podcast":
       return "podcast";
     case "exercise":
+    case "equipment":
       return "wger";
     case "setlist":
       return "setlistfm";
@@ -232,6 +252,8 @@ function fixturePayload(provider, category, id) {
         players: "1",
         boxart: "https://cdn.example.test/chrono-trigger.jpg"
       };
+    case "gamesdb:platform:6":
+      return { id: 6, name: "Super Nintendo Entertainment System", manufacturer: "Nintendo", release_date: "1990", overview: "A 16-bit home video game console.", icon: "https://cdn.example.test/snes.png" };
     case "musicbrainz:release:f5093c06-23e3-404f-aeaa-40f72885ee3a":
       return {
         id,
@@ -310,22 +332,36 @@ function fixturePayload(provider, category, id) {
       };
     case "comicvine:volume:1":
       return { id: 1, name: "Saga", description: "<p>Space opera.</p>", image: { super_url: "https://img.test/saga.jpg" }, publisher: { id: 10, name: "Image" }, characters: [{ id: 20, name: "Alana" }] };
+    case "comicvine:issue:101":
+      return { id: 101, name: "Saga #1", issue_number: "1", cover_date: "2012-03-14", description: "<p>The first issue of Saga.</p>", image: { super_url: "https://img.test/saga-1.jpg" }, volume: { id: 1, name: "Saga" }, characters: [{ id: 20, name: "Alana" }] };
+    case "comicvine:story_arc:201":
+      return { id: 201, name: "The Battle of the Atom", deck: "An X-Men crossover story arc.", issues: [{ id: 101, name: "Saga #1" }], volumes: [{ id: 1, name: "Saga" }] };
     case "comicvine:publisher:10":
       return { id: 10, name: "Image Comics", deck: "Comics publisher." };
     case "jikan:anime:1":
       return { mal_id: 1, title: "Cowboy Bebop", title_english: "Cowboy Bebop", synopsis: "Bounty hunters in space.", score: 8.75, aired: { from: "1998-04-03T00:00:00+00:00" }, images: { jpg: { large_image_url: "https://img.test/bebop.jpg" } }, genres: [{ mal_id: 1, name: "Action" }], studios: [{ mal_id: 14, name: "Sunrise" }] };
     case "jikan:character:2":
       return { mal_id: 2, name: "Spike Spiegel", nicknames: ["Spike"], about: "A bounty hunter.", images: { jpg: { image_url: "https://img.test/spike.jpg" } } };
+    case "jikan:producer:14":
+      return { mal_id: 14, name: "Sunrise", about: "Japanese animation studio.", count: 542, favorites: 1200, established: "1972-09-01", images: { jpg: { image_url: "https://img.test/sunrise.jpg" } } };
+    case "jikan:magazine:1":
+      return { mal_id: 1, name: "Shounen Jump", count: 1200, favorites: 4000, about: "Weekly manga magazine." };
     case "openfoodfacts:product:3017620422003":
       return { code: "3017620422003", product_name: "Nutella", brands: "Ferrero", quantity: "400 g", ingredients_text: "Sugar, palm oil, hazelnuts, skimmed milk powder, cocoa", image_front_url: "https://images.openfoodfacts.org/images/products/301/762/042/2003/front_en.433.400.jpg", nutriments: { "energy-kcal_100g": 539, "fat_100g": 30.9, "proteins_100g": 6.3, "carbohydrates_100g": 57.5, "sugars_100g": 56.3, "salt_100g": 0.107 }, categories_tags: ["en:spreads", "en:hazelnut-spreads", "en:chocolate-spreads"], countries_tags: ["en:france"] };
     case "openstreetmap:city:R406091":
       return { place_id: 123, osm_type: "relation", osm_id: 406091, name: "Oslo", display_name: "Oslo, Norway", lat: "59.9138688", lon: "10.7522454", importance: 0.72, icon: "https://nominatim.openstreetmap.org/ui/mapicons/poi_place_city.p.20.png", boundingbox: ["59.809", "60.135", "10.490", "10.951"], address: { city: "Oslo", country: "Norway", country_code: "no", postcode: "0150" }, namedetails: { "name:en": "Oslo", "name:ja": "オスロ" }, extratags: { population: "717710", wikidata: "Q585", wikipedia: "en:Oslo" } };
     case "openstreetmap:country:R2978650":
       return { place_id: 456, osm_type: "relation", osm_id: 2978650, name: "Norway", display_name: "Norway", lat: "64.5731537", lon: "11.5280364", address: { country: "Norway", country_code: "no" } };
+    case "openstreetmap:place:N987654":
+      return { place_id: 789, osm_type: "node", osm_id: 987654, class: "tourism", type: "attraction", name: "Vigeland Park", display_name: "Vigeland Park, Oslo, Norway", lat: "59.9267", lon: "10.7009", importance: 0.51, address: { city: "Oslo", country: "Norway", country_code: "no" }, extratags: { wikidata: "Q932755" } };
+    case "openstreetmap:venue:W123456":
+      return { place_id: 790, osm_type: "way", osm_id: 123456, class: "amenity", type: "theatre", name: "Oslo Spektrum", display_name: "Oslo Spektrum, Oslo, Norway", lat: "59.9128", lon: "10.7542", importance: 0.49, address: { road: "Sonja Henies plass", house_number: "2", city: "Oslo", country: "Norway", country_code: "no" }, extratags: { wikidata: "Q1773343" } };
     case "podcast:podcast:123":
       return { collectionId: 123, collectionName: "Deep Listening", artistName: "Zivue", country: "USA", trackCount: 42, releaseDate: "2025-01-15T00:00:00Z", longDescription: "<p>Stories about sound.</p>", artworkUrl600: "https://img.test/podcast.jpg", primaryGenreName: "Society & Culture", genres: ["Technology"], feedUrl: "https://feed.test/rss" };
     case "wger:exercise:42":
       return { id: 42, name: "Push-up", description: "<p>Classic bodyweight movement.</p>", category: { name: "Strength" }, muscles: [{ name_en: "Chest" }], muscles_secondary: [{ name_en: "Triceps" }], equipment: [{ name: "Bodyweight" }], images: [{ image: "https://img.test/pushup.jpg" }], variations: [43] };
+    case "wger:equipment:7":
+      return { id: 7, name: "Dumbbell", description: "<p>Free-weight strength equipment.</p>", exercise_count: 128, image: "https://img.test/dumbbell.jpg" };
     case "ticketmaster:event:e1":
       return { id: "e1", name: "Miles Davis Tribute", type: "event", dates: { start: { localDate: "2026-06-01", localTime: "20:00:00" }, status: { code: "onsale" }, timezone: "Europe/Oslo" }, _embedded: { venues: [{ id: "v1", name: "Blue Note" }], attractions: [{ id: "a1", name: "Miles Davis Tribute Band" }] }, classifications: [{ genre: { name: "Jazz" } }], images: [{ url: "https://img.test/event.jpg" }] };
     case "ticketmaster:venue:v1":
@@ -346,6 +382,7 @@ function fixturePayload(provider, category, id) {
 function fixtureExamples() {
   return [
     { target: "gamesdb:game", id: "17444" },
+    { target: "gamesdb:platform", id: "6" },
     { target: "musicbrainz:release", id: "f5093c06-23e3-404f-aeaa-40f72885ee3a" },
     { target: "musicbrainz:release-group", id: "aaa50249-1e6b-3910-b830-7e2fb622a8c4" },
     { target: "musicbrainz:recording", id: "0b5d8c0f-4975-4e44-9e67-0a5f1b5939f6" },
@@ -353,14 +390,21 @@ function fixtureExamples() {
     { target: "musicbrainz:label", id: "a24c1f3d-2e21-487b-b15e-3b419b6483bc" },
     { target: "musicbrainz:work", id: "0e3d8d4d-7b6b-3f9b-8a45-9f477f86f30f" },
     { target: "comicvine:volume", id: "1" },
+    { target: "comicvine:issue", id: "101" },
+    { target: "comicvine:story_arc", id: "201" },
     { target: "comicvine:publisher", id: "10" },
     { target: "jikan:anime", id: "1" },
+    { target: "jikan:producer", id: "14" },
+    { target: "jikan:magazine", id: "1" },
     { target: "jikan:character", id: "2" },
     { target: "openfoodfacts:product", id: "3017620422003" },
     { target: "openstreetmap:city", id: "R406091" },
     { target: "openstreetmap:country", id: "R2978650" },
+    { target: "openstreetmap:place", id: "N987654" },
+    { target: "openstreetmap:venue", id: "W123456" },
     { target: "podcast:podcast", id: "123" },
     { target: "wger:exercise", id: "42" },
+    { target: "wger:equipment", id: "7" },
     { target: "ticketmaster:event", id: "e1" },
     { target: "ticketmaster:venue", id: "v1" },
     { target: "ticketmaster:attraction", id: "a1" },
@@ -477,6 +521,9 @@ function defaultId(target) {
     case "gamesdb:game":
     case "game":
       return "17444";
+    case "gamesdb:platform":
+    case "platform":
+      return "6";
     case "musicbrainz:release":
     case "release":
       return "f5093c06-23e3-404f-aeaa-40f72885ee3a";
@@ -498,6 +545,12 @@ function defaultId(target) {
     case "comicvine:volume":
     case "volume":
       return "1";
+    case "comicvine:issue":
+    case "issue":
+      return "101";
+    case "comicvine:story_arc":
+    case "story_arc":
+      return "201";
     case "comicvine:publisher":
     case "publisher":
       return "10";
@@ -507,6 +560,12 @@ function defaultId(target) {
     case "jikan:character":
     case "character":
       return "2";
+    case "jikan:producer":
+    case "producer":
+      return "14";
+    case "jikan:magazine":
+    case "magazine":
+      return "1";
     case "openfoodfacts:product":
     case "product":
       return "3017620422003";
@@ -516,12 +575,20 @@ function defaultId(target) {
     case "openstreetmap:country":
     case "country":
       return "R2978650";
+    case "openstreetmap:place":
+    case "place":
+      return "N987654";
+    case "openstreetmap:venue":
+      return "W123456";
     case "podcast:podcast":
     case "podcast":
       return "123";
     case "wger:exercise":
     case "exercise":
       return "42";
+    case "wger:equipment":
+    case "equipment":
+      return "7";
     case "ticketmaster:event":
       return "e1";
     case "ticketmaster:venue":

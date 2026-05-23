@@ -3,3 +3,5 @@ export const JIKAN_ANIME_CATEGORY = "anime";
 export const JIKAN_MANGA_CATEGORY = "manga";
 export const JIKAN_CHARACTER_CATEGORY = "character";
 export const JIKAN_PERSON_CATEGORY = "person";
+export const JIKAN_PRODUCER_CATEGORY = "producer";
+export const JIKAN_MAGAZINE_CATEGORY = "magazine";

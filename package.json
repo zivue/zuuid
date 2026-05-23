@@ -60,6 +60,14 @@
       "types": "./dist/providers/comicvine/volume.d.ts",
       "import": "./dist/providers/comicvine/volume.js"
     },
+    "./providers/comicvine/issue": {
+      "types": "./dist/providers/comicvine/issue.d.ts",
+      "import": "./dist/providers/comicvine/issue.js"
+    },
+    "./providers/comicvine/story-arc": {
+      "types": "./dist/providers/comicvine/story-arc.d.ts",
+      "import": "./dist/providers/comicvine/story-arc.js"
+    },
     "./providers/comicvine/character": {
       "types": "./dist/providers/comicvine/character.d.ts",
       "import": "./dist/providers/comicvine/character.js"
@@ -80,6 +88,10 @@
       "types": "./dist/providers/gamesdb/game.d.ts",
       "import": "./dist/providers/gamesdb/game.js"
     },
+    "./providers/gamesdb/platform": {
+      "types": "./dist/providers/gamesdb/platform.d.ts",
+      "import": "./dist/providers/gamesdb/platform.js"
+    },
     "./providers/jikan": {
       "types": "./dist/providers/jikan/index.d.ts",
       "import": "./dist/providers/jikan/index.js"
@@ -95,6 +107,14 @@
     "./providers/jikan/manga": {
       "types": "./dist/providers/jikan/manga.d.ts",
       "import": "./dist/providers/jikan/manga.js"
+    },
+    "./providers/jikan/producer": {
+      "types": "./dist/providers/jikan/producer.d.ts",
+      "import": "./dist/providers/jikan/producer.js"
+    },
+    "./providers/jikan/magazine": {
+      "types": "./dist/providers/jikan/magazine.d.ts",
+      "import": "./dist/providers/jikan/magazine.js"
     },
     "./providers/jikan/character": {
       "types": "./dist/providers/jikan/character.d.ts",
@@ -147,6 +167,10 @@
     "./providers/openstreetmap/place": {
       "types": "./dist/providers/openstreetmap/place.d.ts",
       "import": "./dist/providers/openstreetmap/place.js"
+    },
+    "./providers/openstreetmap/venue": {
+      "types": "./dist/providers/openstreetmap/venue.d.ts",
+      "import": "./dist/providers/openstreetmap/venue.js"
     },
     "./providers/podcast": {
       "types": "./dist/providers/podcast/index.d.ts",
@@ -203,6 +227,10 @@
     "./providers/wger/exercise": {
       "types": "./dist/providers/wger/exercise.d.ts",
       "import": "./dist/providers/wger/exercise.js"
+    },
+    "./providers/wger/equipment": {
+      "types": "./dist/providers/wger/equipment.d.ts",
+      "import": "./dist/providers/wger/equipment.js"
     },
     "./providers/tmdb/movie": {
       "types": "./dist/providers/tmdb/movie.d.ts",

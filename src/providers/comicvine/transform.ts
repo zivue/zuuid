@@ -1,11 +1,18 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
 import { addAlias, addDescription, addDetail, addMedia, addRelation, addTag, arrayField, baseDataFromSource, finalizeData, nestedString, objectPayload, stringField, stripHtml, valueAsString } from "../common.js";
-import { COMICVINE_CHARACTER_CATEGORY, COMICVINE_PERSON_CATEGORY, COMICVINE_PROVIDER, COMICVINE_PUBLISHER_CATEGORY, COMICVINE_VOLUME_CATEGORY } from "./constants.js";
+import { COMICVINE_CHARACTER_CATEGORY, COMICVINE_ISSUE_CATEGORY, COMICVINE_PERSON_CATEGORY, COMICVINE_PROVIDER, COMICVINE_PUBLISHER_CATEGORY, COMICVINE_STORY_ARC_CATEGORY, COMICVINE_VOLUME_CATEGORY } from "./constants.js";
 
 export async function transformComicVine(source: SourceRecord): Promise<ZuuidData> {
   if (source.source.provider !== COMICVINE_PROVIDER) throw new Error(`unsupported ComicVine source: ${source.source.provider}:${source.source.category}`);
-  const publicCategory = source.source.category === COMICVINE_VOLUME_CATEGORY ? "comic" : source.source.category === COMICVINE_PUBLISHER_CATEGORY ? "organization" : source.source.category === COMICVINE_CHARACTER_CATEGORY || source.source.category === COMICVINE_PERSON_CATEGORY ? "person" : undefined;
+  const publicCategory =
+    source.source.category === COMICVINE_VOLUME_CATEGORY || source.source.category === COMICVINE_ISSUE_CATEGORY || source.source.category === COMICVINE_STORY_ARC_CATEGORY
+      ? "comic"
+      : source.source.category === COMICVINE_PUBLISHER_CATEGORY
+        ? "organization"
+        : source.source.category === COMICVINE_CHARACTER_CATEGORY || source.source.category === COMICVINE_PERSON_CATEGORY
+          ? "person"
+          : undefined;
   if (!publicCategory) throw new Error(`unsupported ComicVine source: ${source.source.provider}:${source.source.category}`);
   const payload = objectPayload(source.payload);
   const id = source.source.externalId.trim() || valueAsString(payload.id);
@@ -19,13 +26,17 @@ export async function transformComicVine(source: SourceRecord): Promise<ZuuidDat
   const description = stringField(payload, "description") ?? stringField(payload, "deck");
   addDescription(data, COMICVINE_PROVIDER, description ? stripHtml(description) : undefined, "en");
   addMedia(data, COMICVINE_PROVIDER, nestedString(payload, ["image", "super_url"]) ?? nestedString(payload, ["image", "original_url"]) ?? nestedString(payload, ["image", "medium_url"]) ?? nestedString(payload, ["image", "icon_url"]), "cover");
-  for (const key of ["start_year", "count_of_issues", "birth", "death", "hometown", "real_name", "aliases", "deck"]) addDetail(data, COMICVINE_PROVIDER, key, valueAsString(payload[key]));
+  for (const key of ["start_year", "count_of_issues", "issue_number", "cover_date", "store_date", "birth", "death", "hometown", "real_name", "aliases", "deck"]) addDetail(data, COMICVINE_PROVIDER, key, valueAsString(payload[key]));
+  data.primaryDate = stringField(payload, "cover_date") ?? stringField(payload, "store_date") ?? stringField(payload, "start_year");
   for (const value of arrayField(payload, "concepts")) if (value && typeof value === "object" && !Array.isArray(value)) addTag(data, stringField(value as never, "name"));
   addTag(data, publicCategory === "organization" ? "publisher" : publicCategory === "person" ? "character" : publicCategory);
   await addRelationObject(data, payload, "publisher", "publisher", "publisher");
+  await addRelationObject(data, payload, "volume", "part_of", "volume");
   await addRelationArray(data, payload, "characters", "character", "character");
   await addRelationArray(data, payload, "people", "creator", "person");
   await addRelationArray(data, payload, "volumes", "volume", "volume");
+  await addRelationArray(data, payload, "issues", "contains", "issue");
+  await addRelationArray(data, payload, "story_arcs", "story_arc", "story_arc");
   return finalizeData(data, source);
 }
 

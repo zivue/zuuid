@@ -4,6 +4,7 @@ import {
   createSourceRecord,
   transformComicVine,
   transformGamesDbGame,
+  transformGamesDbPlatform,
   transformJikan,
   transformMusicBrainzArtist,
   transformMusicBrainzLabel,
@@ -16,6 +17,7 @@ import {
   transformPodcast,
   transformSetlistFm,
   transformTicketmaster,
+  transformWgerEquipment,
   transformWgerExercise
 } from "../dist/index.js";
 
@@ -267,4 +269,62 @@ test("transformComicVine, transformTicketmaster, and transformSetlistFm map link
   assert.equal(setlistData.kind, "event");
   assert.equal(setlistData.primaryDate, "2026-05-14");
   assert.equal(setlistData.details.some((detail) => detail.key === "song_count" && detail.value === "1"), true);
+});
+
+test("additional requested provider categories transform", async () => {
+  const platform = await createSourceRecord({
+    source: { provider: "gamesdb", category: "platform", externalId: "6" },
+    payload: { id: 6, name: "Super Nintendo Entertainment System", manufacturer: "Nintendo", release_date: "1990" },
+    observedAt
+  });
+  assert.equal((await transformGamesDbPlatform(platform)).category, "platform");
+
+  const issue = await createSourceRecord({
+    source: { provider: "comicvine", category: "issue", externalId: "101" },
+    payload: { id: 101, name: "Saga #1", issue_number: "1", cover_date: "2012-03-14", volume: { id: 1, name: "Saga" } },
+    observedAt
+  });
+  assert.equal((await transformComicVine(issue)).primaryDate, "2012-03-14");
+
+  const storyArc = await createSourceRecord({
+    source: { provider: "comicvine", category: "story_arc", externalId: "201" },
+    payload: { id: 201, name: "The Battle of the Atom", issues: [{ id: 101, name: "Saga #1" }] },
+    observedAt
+  });
+  assert.equal((await transformComicVine(storyArc)).relations.some((relation) => relation.category === "issue"), true);
+
+  const producer = await createSourceRecord({
+    source: { provider: "jikan", category: "producer", externalId: "14" },
+    payload: { mal_id: 14, name: "Sunrise", established: "1972-09-01", count: 542 },
+    observedAt
+  });
+  assert.equal((await transformJikan(producer)).category, "organization");
+
+  const magazine = await createSourceRecord({
+    source: { provider: "jikan", category: "magazine", externalId: "1" },
+    payload: { mal_id: 1, name: "Shounen Jump", count: 1200 },
+    observedAt
+  });
+  assert.equal((await transformJikan(magazine)).kind, "read");
+
+  const place = await createSourceRecord({
+    source: { provider: "openstreetmap", category: "place", externalId: "N987654" },
+    payload: { osm_type: "node", osm_id: 987654, name: "Vigeland Park", display_name: "Vigeland Park, Oslo, Norway", class: "tourism", type: "attraction" },
+    observedAt
+  });
+  assert.equal((await transformOpenStreetMapPlace(place)).kind, "visit");
+
+  const venue = await createSourceRecord({
+    source: { provider: "openstreetmap", category: "venue", externalId: "W123456" },
+    payload: { osm_type: "way", osm_id: 123456, name: "Oslo Spektrum", display_name: "Oslo Spektrum, Oslo, Norway", class: "amenity", type: "theatre" },
+    observedAt
+  });
+  assert.equal((await transformOpenStreetMapPlace(venue)).category, "venue");
+
+  const equipment = await createSourceRecord({
+    source: { provider: "wger", category: "equipment", externalId: "7" },
+    payload: { id: 7, name: "Dumbbell", exercise_count: 128 },
+    observedAt
+  });
+  assert.equal((await transformWgerEquipment(equipment)).category, "equipment");
 });
