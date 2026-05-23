@@ -48,6 +48,162 @@
       "types": "./dist/providers/openlibrary/author.d.ts",
       "import": "./dist/providers/openlibrary/author.js"
     },
+    "./providers/comicvine": {
+      "types": "./dist/providers/comicvine/index.d.ts",
+      "import": "./dist/providers/comicvine/index.js"
+    },
+    "./providers/comicvine/transform": {
+      "types": "./dist/providers/comicvine/transform.d.ts",
+      "import": "./dist/providers/comicvine/transform.js"
+    },
+    "./providers/comicvine/volume": {
+      "types": "./dist/providers/comicvine/volume.d.ts",
+      "import": "./dist/providers/comicvine/volume.js"
+    },
+    "./providers/comicvine/character": {
+      "types": "./dist/providers/comicvine/character.d.ts",
+      "import": "./dist/providers/comicvine/character.js"
+    },
+    "./providers/comicvine/person": {
+      "types": "./dist/providers/comicvine/person.d.ts",
+      "import": "./dist/providers/comicvine/person.js"
+    },
+    "./providers/comicvine/publisher": {
+      "types": "./dist/providers/comicvine/publisher.d.ts",
+      "import": "./dist/providers/comicvine/publisher.js"
+    },
+    "./providers/gamesdb": {
+      "types": "./dist/providers/gamesdb/index.d.ts",
+      "import": "./dist/providers/gamesdb/index.js"
+    },
+    "./providers/gamesdb/game": {
+      "types": "./dist/providers/gamesdb/game.d.ts",
+      "import": "./dist/providers/gamesdb/game.js"
+    },
+    "./providers/jikan": {
+      "types": "./dist/providers/jikan/index.d.ts",
+      "import": "./dist/providers/jikan/index.js"
+    },
+    "./providers/jikan/transform": {
+      "types": "./dist/providers/jikan/transform.d.ts",
+      "import": "./dist/providers/jikan/transform.js"
+    },
+    "./providers/jikan/anime": {
+      "types": "./dist/providers/jikan/anime.d.ts",
+      "import": "./dist/providers/jikan/anime.js"
+    },
+    "./providers/jikan/manga": {
+      "types": "./dist/providers/jikan/manga.d.ts",
+      "import": "./dist/providers/jikan/manga.js"
+    },
+    "./providers/jikan/character": {
+      "types": "./dist/providers/jikan/character.d.ts",
+      "import": "./dist/providers/jikan/character.js"
+    },
+    "./providers/jikan/person": {
+      "types": "./dist/providers/jikan/person.d.ts",
+      "import": "./dist/providers/jikan/person.js"
+    },
+    "./providers/musicbrainz": {
+      "types": "./dist/providers/musicbrainz/index.d.ts",
+      "import": "./dist/providers/musicbrainz/index.js"
+    },
+    "./providers/musicbrainz/release": {
+      "types": "./dist/providers/musicbrainz/release.d.ts",
+      "import": "./dist/providers/musicbrainz/release.js"
+    },
+    "./providers/musicbrainz/release-group": {
+      "types": "./dist/providers/musicbrainz/release-group.d.ts",
+      "import": "./dist/providers/musicbrainz/release-group.js"
+    },
+    "./providers/musicbrainz/recording": {
+      "types": "./dist/providers/musicbrainz/recording.d.ts",
+      "import": "./dist/providers/musicbrainz/recording.js"
+    },
+    "./providers/musicbrainz/artist": {
+      "types": "./dist/providers/musicbrainz/artist.d.ts",
+      "import": "./dist/providers/musicbrainz/artist.js"
+    },
+    "./providers/musicbrainz/label": {
+      "types": "./dist/providers/musicbrainz/label.d.ts",
+      "import": "./dist/providers/musicbrainz/label.js"
+    },
+    "./providers/musicbrainz/work": {
+      "types": "./dist/providers/musicbrainz/work.d.ts",
+      "import": "./dist/providers/musicbrainz/work.js"
+    },
+    "./providers/openfoodfacts": {
+      "types": "./dist/providers/openfoodfacts/index.d.ts",
+      "import": "./dist/providers/openfoodfacts/index.js"
+    },
+    "./providers/openfoodfacts/product": {
+      "types": "./dist/providers/openfoodfacts/product.d.ts",
+      "import": "./dist/providers/openfoodfacts/product.js"
+    },
+    "./providers/openstreetmap": {
+      "types": "./dist/providers/openstreetmap/index.d.ts",
+      "import": "./dist/providers/openstreetmap/index.js"
+    },
+    "./providers/openstreetmap/place": {
+      "types": "./dist/providers/openstreetmap/place.d.ts",
+      "import": "./dist/providers/openstreetmap/place.js"
+    },
+    "./providers/podcast": {
+      "types": "./dist/providers/podcast/index.d.ts",
+      "import": "./dist/providers/podcast/index.js"
+    },
+    "./providers/podcast/podcast": {
+      "types": "./dist/providers/podcast/podcast.d.ts",
+      "import": "./dist/providers/podcast/podcast.js"
+    },
+    "./providers/setlistfm": {
+      "types": "./dist/providers/setlistfm/index.d.ts",
+      "import": "./dist/providers/setlistfm/index.js"
+    },
+    "./providers/setlistfm/transform": {
+      "types": "./dist/providers/setlistfm/transform.d.ts",
+      "import": "./dist/providers/setlistfm/transform.js"
+    },
+    "./providers/setlistfm/setlist": {
+      "types": "./dist/providers/setlistfm/setlist.d.ts",
+      "import": "./dist/providers/setlistfm/setlist.js"
+    },
+    "./providers/setlistfm/artist": {
+      "types": "./dist/providers/setlistfm/artist.d.ts",
+      "import": "./dist/providers/setlistfm/artist.js"
+    },
+    "./providers/setlistfm/venue": {
+      "types": "./dist/providers/setlistfm/venue.d.ts",
+      "import": "./dist/providers/setlistfm/venue.js"
+    },
+    "./providers/ticketmaster": {
+      "types": "./dist/providers/ticketmaster/index.d.ts",
+      "import": "./dist/providers/ticketmaster/index.js"
+    },
+    "./providers/ticketmaster/transform": {
+      "types": "./dist/providers/ticketmaster/transform.d.ts",
+      "import": "./dist/providers/ticketmaster/transform.js"
+    },
+    "./providers/ticketmaster/event": {
+      "types": "./dist/providers/ticketmaster/event.d.ts",
+      "import": "./dist/providers/ticketmaster/event.js"
+    },
+    "./providers/ticketmaster/attraction": {
+      "types": "./dist/providers/ticketmaster/attraction.d.ts",
+      "import": "./dist/providers/ticketmaster/attraction.js"
+    },
+    "./providers/ticketmaster/venue": {
+      "types": "./dist/providers/ticketmaster/venue.d.ts",
+      "import": "./dist/providers/ticketmaster/venue.js"
+    },
+    "./providers/wger": {
+      "types": "./dist/providers/wger/index.d.ts",
+      "import": "./dist/providers/wger/index.js"
+    },
+    "./providers/wger/exercise": {
+      "types": "./dist/providers/wger/exercise.d.ts",
+      "import": "./dist/providers/wger/exercise.js"
+    },
     "./providers/tmdb/movie": {
       "types": "./dist/providers/tmdb/movie.d.ts",
       "import": "./dist/providers/tmdb/movie.js"

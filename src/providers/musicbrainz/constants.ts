@@ -1,0 +1,9 @@
+export const MUSICBRAINZ_PROVIDER = "musicbrainz";
+export const MUSICBRAINZ_RELEASE_CATEGORY = "release";
+export const MUSICBRAINZ_RELEASE_GROUP_CATEGORY = "release-group";
+export const MUSICBRAINZ_RECORDING_CATEGORY = "recording";
+export const MUSICBRAINZ_ARTIST_CATEGORY = "artist";
+export const MUSICBRAINZ_LABEL_CATEGORY = "label";
+export const MUSICBRAINZ_WORK_CATEGORY = "work";
+export const MUSICBRAINZ_COVER_ART_BASE_URL = "https://coverartarchive.org/release";
+export const MUSICBRAINZ_RELEASE_GROUP_COVER_ART_BASE_URL = "https://coverartarchive.org/release-group";

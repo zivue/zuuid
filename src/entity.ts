@@ -181,9 +181,12 @@ export function kindForCategory(category: string): EntityKind {
     case "music":
     case "musicalbum":
     case "release":
+    case "release-group":
+    case "release_group":
     case "master":
     case "track":
     case "recording":
+    case "musical_work":
     case "podcast":
     case "podcast_episode":
     case "audiobook":
@@ -220,6 +223,7 @@ export function kindForCategory(category: string): EntityKind {
     case "person":
     case "people":
     case "artist":
+    case "label":
     case "author":
     case "actor":
     case "creator":
