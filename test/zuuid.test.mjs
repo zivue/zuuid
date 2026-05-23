@@ -779,6 +779,8 @@ test("OpenLibraryProvider fetchBookSourceRecord requests enriched book JSON", as
               title: "The Lord of the Rings",
               authors: [{ author: { key: "/authors/OL26320A" } }]
             }
+          : requestedUrl.pathname === "/search.json"
+            ? { docs: [{ key: "/works/OL82563W", title: "The Lord of the Rings", first_publish_year: 1954 }] }
           : requestedUrl.pathname === "/works/OL82563W/editions.json"
             ? { size: 1, entries: [{ key: "/books/OL7353617M", publish_date: "1954" }] }
             : requestedUrl.pathname === "/works/OL82563W/ratings.json"
@@ -795,9 +797,9 @@ test("OpenLibraryProvider fetchBookSourceRecord requests enriched book JSON", as
 
   assert.deepEqual(
     requestedUrls.map((url) => url.pathname),
-    ["/works/OL82563W.json", "/works/OL82563W/editions.json", "/works/OL82563W/ratings.json", "/authors/OL26320A.json"]
+    ["/works/OL82563W.json", "/search.json", "/works/OL82563W/editions.json", "/works/OL82563W/ratings.json", "/authors/OL26320A.json"]
   );
-  assert.equal(requestedUrls[1].searchParams.get("limit"), "10");
+  assert.equal(requestedUrls[2].searchParams.get("limit"), "50");
   assert.deepEqual(source?.source, { provider: "openlibrary", category: "book", externalId: "OL82563W" });
   assert.equal(source?.payload.work.title, "The Lord of the Rings");
   assert.equal(source?.payload.editions.entries[0]?.publish_date, "1954");
@@ -971,7 +973,7 @@ test("createZuuidClient exposes openlibrary read facade", async () => {
   const search = await client.read.openlibrary?.search({ query: "book" });
   const source = await client.read.openlibrary?.fetchSourceRecord({ id: "OL82563W" });
 
-  assert.deepEqual(requestedPaths, ["/search.json", "/works/OL82563W.json", "/works/OL82563W/editions.json", "/works/OL82563W/ratings.json"]);
+  assert.deepEqual(requestedPaths, ["/search.json", "/works/OL82563W.json", "/search.json", "/works/OL82563W/editions.json", "/works/OL82563W/ratings.json"]);
   assert.equal(search?.results[0]?.title, "Book");
   assert.deepEqual(source?.source, { provider: "openlibrary", category: "book", externalId: "OL82563W" });
 });

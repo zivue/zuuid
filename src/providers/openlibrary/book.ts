@@ -32,6 +32,13 @@ export type OpenLibraryWorkPayload = {
   first_publish_date?: string;
   authors?: OpenLibraryAuthorRef[];
   links?: { title?: string; url?: string; type?: { key?: string } }[];
+  excerpts?: { excerpt?: string; pages?: string; comment?: string }[];
+  series?: JsonValue[];
+  cover_edition?: { key?: string };
+  created?: JsonValue;
+  last_modified?: JsonValue;
+  latest_revision?: number;
+  revision?: number;
 };
 
 export type OpenLibraryBookAuthorPayload = {
@@ -46,6 +53,11 @@ export type OpenLibraryBookAuthorPayload = {
 export type OpenLibraryEditionPayload = {
   key?: string;
   title?: string;
+  subtitle?: string;
+  full_title?: string;
+  edition_name?: string;
+  description?: OpenLibraryDescription;
+  notes?: OpenLibraryDescription;
   publish_date?: string;
   publishers?: string[];
   number_of_pages?: number;
@@ -53,7 +65,14 @@ export type OpenLibraryEditionPayload = {
   isbn_10?: string[];
   isbn_13?: string[];
   languages?: { key?: string }[];
+  translated_from?: { key?: string }[];
+  translation_of?: string;
   covers?: number[];
+  contributors?: { role?: string; name?: string }[];
+  identifiers?: Record<string, JsonValue>;
+  classifications?: Record<string, JsonValue>;
+  local_id?: string[];
+  source_records?: string[];
 };
 
 export type OpenLibraryEditionsPayload = {
@@ -63,6 +82,7 @@ export type OpenLibraryEditionsPayload = {
 
 export type OpenLibraryBookPayload = {
   work: OpenLibraryWorkPayload;
+  search?: OpenLibrarySearchDoc;
   editions?: {
     entries: OpenLibraryEditionPayload[];
     size?: number;
@@ -94,6 +114,9 @@ export type OpenLibrarySearchDoc = {
   isbn?: string[];
   ia?: string[];
   subject?: string[];
+  ddc?: string[];
+  lcc?: string[];
+  lccn?: string[];
 };
 
 export async function fetchOpenLibraryBookSourceRecord(
@@ -107,13 +130,15 @@ export async function fetchOpenLibraryBookSourceRecord(
     return undefined;
   }
 
+  const search = await fetchOpenLibraryBookSearchDoc(provider, id, work);
   const editions = await provider.getJson<OpenLibraryEditionsPayload>(`/works/${id}/editions.json`, {
-    limit: String(input.editionLimit ?? 10)
+    limit: String(input.editionLimit ?? 50)
   });
   const ratings = await provider.getJson<OpenLibraryRatingsPayload>(`/works/${id}/ratings.json`, {});
   const authors = await fetchOpenLibraryAuthors(provider, work);
   const payload: OpenLibraryBookPayload = {
     work,
+    ...(search ? { search } : {}),
     ...(editions ? { editions: { entries: editions.entries ?? [], size: editions.size } } : {}),
     ...(authors.length ? { authors } : {}),
     ...(ratings ? { ratings } : {})
@@ -193,7 +218,8 @@ export async function transformOpenLibraryBook(
 
   const zuuid = await providerZuuid({ provider: OPEN_LIBRARY_PROVIDER, category: OPEN_LIBRARY_BOOK_CATEGORY, externalId: id });
   const data = createZuuidData({ zuuid, category: OPEN_LIBRARY_BOOK_CATEGORY, primaryTitle: title });
-  const rating = numberField(payload.ratings?.summary?.average ?? payload.ratings?.summary?.sortable);
+  const preferredEdition = preferredOpenLibraryEdition(payload);
+  const rating = numberField(payload.ratings?.summary?.average ?? payload.ratings?.summary?.sortable ?? payload.search?.ratings_average);
   if (rating !== undefined) {
     data.rating = rating;
     data.details.push({ key: "rating_average", value: rating, source: OPEN_LIBRARY_PROVIDER });
@@ -203,8 +229,15 @@ export async function transformOpenLibraryBook(
     data.details.push({ key: "rating_count", value: ratingCount, source: OPEN_LIBRARY_PROVIDER });
   }
 
-  const firstPublishDate = stringField(work.first_publish_date);
-  if (firstPublishDate) {
+  const firstPublishYear = numberField(payload.search?.first_publish_year);
+  const firstPublishDate = stringField(work.first_publish_date) ?? stringField(payload.search?.first_publish_date);
+  if (firstPublishYear !== undefined) {
+    data.primaryDate = String(firstPublishYear);
+    data.details.push({ key: "first_publish_year", value: firstPublishYear, source: OPEN_LIBRARY_PROVIDER });
+    if (firstPublishDate && firstPublishDate !== String(firstPublishYear)) {
+      data.details.push({ key: "work_first_publish_date", value: firstPublishDate, source: OPEN_LIBRARY_PROVIDER });
+    }
+  } else if (firstPublishDate) {
     data.primaryDate = firstPublishDate;
     data.details.push({ key: "first_publish_date", value: firstPublishDate, source: OPEN_LIBRARY_PROVIDER });
   }
@@ -213,9 +246,17 @@ export async function transformOpenLibraryBook(
   if (description) {
     data.descriptions.push({ value: description, source: OPEN_LIBRARY_PROVIDER });
   }
+  for (const edition of payload.editions?.entries ?? []) {
+    const editionDescription = descriptionValue(edition.description);
+    if (editionDescription && !data.descriptions.some((item) => item.value === editionDescription)) {
+      data.descriptions.push({ value: editionDescription, source: OPEN_LIBRARY_PROVIDER });
+    }
+  }
 
-  const primaryEdition = payload.editions?.entries.find((edition) => edition.covers?.some((cover) => typeof cover === "number"));
-  const primaryCover = work.covers?.find((cover) => typeof cover === "number") ?? primaryEdition?.covers?.find((cover) => typeof cover === "number");
+  const primaryCover =
+    work.covers?.find((cover) => typeof cover === "number") ??
+    preferredEdition?.covers?.find((cover) => typeof cover === "number") ??
+    payload.search?.cover_i;
   const primaryCoverUrl = coverUrl(primaryCover, options.coverBaseUrl ?? OPEN_LIBRARY_COVER_BASE_URL);
   if (primaryCoverUrl) {
     data.cover = primaryCoverUrl;
@@ -233,9 +274,14 @@ export async function transformOpenLibraryBook(
   addArrayDetail(data, "subject_people", work.subject_people);
   addArrayDetail(data, "subject_times", work.subject_times);
   addStructuredDetail(data, "links", work.links as JsonValue | undefined);
-  addEditionDetails(data, payload.editions?.entries);
+  addStructuredDetail(data, "excerpts", work.excerpts as JsonValue | undefined);
+  addStructuredDetail(data, "series", work.series as JsonValue | undefined);
+  addStructuredDetail(data, "cover_edition", work.cover_edition as JsonValue | undefined);
+  addOpenLibraryBookAggregateDetails(data, payload, preferredEdition);
   if (typeof payload.editions?.size === "number") {
     data.details.push({ key: "edition_count", value: payload.editions.size, source: OPEN_LIBRARY_PROVIDER });
+  } else if (typeof payload.search?.edition_count === "number") {
+    data.details.push({ key: "edition_count", value: payload.search.edition_count, source: OPEN_LIBRARY_PROVIDER });
   }
 
   for (const subject of work.subjects ?? []) {
@@ -245,6 +291,34 @@ export async function transformOpenLibraryBook(
   await addAuthorRelations(data, payload);
 
   return attachSourceMetadata(data, source);
+}
+
+async function fetchOpenLibraryBookSearchDoc(
+  provider: OpenLibraryProvider,
+  id: string,
+  work: OpenLibraryWorkPayload
+): Promise<OpenLibrarySearchDoc | undefined> {
+  const byId = await fetchOpenLibraryBookSearchDocByQuery(provider, id, id, 5);
+  if (byId) {
+    return byId;
+  }
+
+  const title = stringField(work.title);
+  return title ? fetchOpenLibraryBookSearchDocByQuery(provider, id, title, 20) : undefined;
+}
+
+async function fetchOpenLibraryBookSearchDocByQuery(
+  provider: OpenLibraryProvider,
+  id: string,
+  query: string,
+  limit: number
+): Promise<OpenLibrarySearchDoc | undefined> {
+  const payload = await provider.getJson<OpenLibrarySearchResponse<OpenLibrarySearchDoc>>("/search.json", {
+    q: query,
+    limit: String(limit),
+    fields: openLibraryBookSearchFields().join(",")
+  });
+  return payload?.docs?.find((doc) => openLibraryWorkIdFromKey(doc.key) === id);
 }
 
 async function fetchOpenLibraryAuthors(provider: OpenLibraryProvider, work: OpenLibraryWorkPayload): Promise<OpenLibraryBookAuthorPayload[]> {
@@ -267,7 +341,20 @@ async function fetchOpenLibraryBookSearchResults(
   input: OpenLibrarySearchInput
 ): Promise<OpenLibrarySearchResponse<OpenLibrarySearchDoc>> {
   const query = searchQuery(input.query);
-  const fields = input.fields ?? [
+  const fields = input.fields ?? openLibraryBookSearchFields();
+  const payload = await provider.getJson<OpenLibrarySearchResponse<OpenLibrarySearchDoc>>("/search.json", {
+    q: query,
+    page: String(input.page ?? 1),
+    limit: String(input.limit ?? 20),
+    fields: fields.join(","),
+    ...(input.language ? { language: input.language } : {})
+  });
+
+  return payload ?? {};
+}
+
+function openLibraryBookSearchFields(): string[] {
+  return [
     "key",
     "title",
     "author_name",
@@ -280,17 +367,11 @@ async function fetchOpenLibraryBookSearchResults(
     "language",
     "isbn",
     "ia",
-    "subject"
+    "subject",
+    "ddc",
+    "lcc",
+    "lccn"
   ];
-  const payload = await provider.getJson<OpenLibrarySearchResponse<OpenLibrarySearchDoc>>("/search.json", {
-    q: query,
-    page: String(input.page ?? 1),
-    limit: String(input.limit ?? 20),
-    fields: fields.join(","),
-    ...(input.language ? { language: input.language } : {})
-  });
-
-  return payload ?? {};
 }
 
 async function sourceRecordsFromSearchResults(results: OpenLibrarySearchDoc[] | undefined): Promise<SourceRecord[]> {
@@ -337,25 +418,235 @@ async function addAuthorRelations(data: ZuuidData, payload: OpenLibraryBookPaylo
   }
 }
 
-function addEditionDetails(data: ZuuidData, editions: OpenLibraryEditionPayload[] | undefined): void {
-  const firstEdition = editions?.[0];
-  if (!firstEdition) {
+function addOpenLibraryBookAggregateDetails(
+  data: ZuuidData,
+  payload: OpenLibraryBookPayload,
+  preferredEdition: OpenLibraryEditionPayload | undefined
+): void {
+  const editions = payload.editions?.entries ?? [];
+  if (!editions.length && !payload.search) {
     return;
   }
 
-  addArrayDetail(data, "publishers", firstEdition.publishers);
-  addArrayDetail(data, "isbn_10", firstEdition.isbn_10);
-  addArrayDetail(data, "isbn_13", firstEdition.isbn_13);
+  addArrayDetail(data, "languages", uniqueStrings([...(payload.search?.language ?? []), ...editions.flatMap((edition) => languageKeys(edition.languages))]));
+  addArrayDetail(data, "isbn_10", uniqueStrings(editions.flatMap((edition) => edition.isbn_10 ?? [])));
+  addArrayDetail(data, "isbn_13", uniqueStrings(editions.flatMap((edition) => edition.isbn_13 ?? [])));
+  addArrayDetail(data, "isbn", uniqueStrings([...(payload.search?.isbn ?? []), ...editions.flatMap((edition) => [...(edition.isbn_10 ?? []), ...(edition.isbn_13 ?? [])])]));
+  addArrayDetail(data, "ia", payload.search?.ia);
+  addArrayDetail(data, "publishers", uniqueStrings(editions.flatMap((edition) => edition.publishers ?? [])));
+  addArrayDetail(data, "source_records", uniqueStrings(editions.flatMap((edition) => edition.source_records ?? [])));
+  addArrayDetail(data, "local_id", uniqueStrings(editions.flatMap((edition) => edition.local_id ?? [])));
+  addArrayDetail(data, "dewey_decimal_class", uniqueStrings([...(payload.search?.ddc ?? []), ...classificationSubjects(payload.work.subjects, "dewey")]));
+  addArrayDetail(data, "lc_classifications", uniqueStrings([...(payload.search?.lcc ?? []), ...classificationSubjects(payload.work.subjects, "lc")]));
+  addArrayDetail(data, "lccn", payload.search?.lccn);
+  addArrayDetail(data, "translated_from", uniqueStrings(editions.flatMap((edition) => languageKeys(edition.translated_from))));
+  addArrayDetail(data, "translation_of", uniqueStrings(editions.map((edition) => stringField(edition.translation_of)).filter((item): item is string => Boolean(item))));
 
-  if (firstEdition.publish_date) {
-    data.details.push({ key: "publish_date", value: firstEdition.publish_date, source: OPEN_LIBRARY_PROVIDER });
+  const contributors = uniqueObjects(
+    editions.flatMap((edition) =>
+      (edition.contributors ?? [])
+        .map((contributor) => ({
+          role: stringField(contributor.role),
+          name: stringField(contributor.name)
+        }))
+        .filter((contributor) => contributor.name)
+    )
+  );
+  addStructuredDetail(data, "contributors", contributors as JsonValue);
+
+  const classifications = combineEditionRecords(editions, "classifications");
+  addStructuredDetail(data, "classifications", classifications);
+
+  const identifiers = combineEditionRecords(editions, "identifiers");
+  addStructuredDetail(data, "identifiers", identifiers);
+
+  if (preferredEdition) {
+    const preferred = editionSummary(preferredEdition);
+    addStructuredDetail(data, "preferred_edition", preferred as JsonValue);
+    addDetail(data, "publish_date", preferredEdition.publish_date);
+    addDetail(data, "edition_name", preferredEdition.edition_name);
+    addDetail(data, "full_title", preferredEdition.full_title);
+    addDetail(data, "subtitle", preferredEdition.subtitle);
+    if (typeof preferredEdition.number_of_pages === "number") {
+      data.details.push({ key: "number_of_pages", value: preferredEdition.number_of_pages, source: OPEN_LIBRARY_PROVIDER });
+    }
+    addDetail(data, "physical_format", preferredEdition.physical_format);
   }
-  if (typeof firstEdition.number_of_pages === "number") {
-    data.details.push({ key: "number_of_pages", value: firstEdition.number_of_pages, source: OPEN_LIBRARY_PROVIDER });
+
+  const summaries = editions.map((edition) => editionSummary(edition)).filter((edition) => Object.keys(edition).length > 0);
+  addStructuredDetail(data, "editions", summaries as JsonValue);
+}
+
+function preferredOpenLibraryEdition(payload: OpenLibraryBookPayload): OpenLibraryEditionPayload | undefined {
+  const editions = payload.editions?.entries ?? [];
+  if (!editions.length) {
+    return undefined;
   }
-  if (firstEdition.physical_format) {
-    data.details.push({ key: "physical_format", value: firstEdition.physical_format, source: OPEN_LIBRARY_PROVIDER });
+
+  const coverEditionId = openLibraryEditionIdFromKey(payload.work.cover_edition?.key);
+  const coverEdition = editions.find((edition) => openLibraryEditionIdFromKey(edition.key) === coverEditionId);
+  if (coverEdition) {
+    return coverEdition;
   }
+
+  return [...editions].sort((a, b) => editionScore(b, payload) - editionScore(a, payload))[0];
+}
+
+function editionScore(edition: OpenLibraryEditionPayload, payload: OpenLibraryBookPayload): number {
+  let score = 0;
+  const title = stringField(edition.title)?.toLowerCase();
+  const workTitle = stringField(payload.work.title)?.toLowerCase();
+  const languages = languageKeys(edition.languages);
+
+  if (title && workTitle && title === workTitle) {
+    score += 20;
+  }
+  if (languages.includes("eng")) {
+    score += 15;
+  }
+  if (edition.isbn_13?.length) {
+    score += 8;
+  }
+  if (edition.isbn_10?.length) {
+    score += 6;
+  }
+  if (edition.covers?.length) {
+    score += 5;
+  }
+  if (edition.publish_date) {
+    score += 4;
+  }
+  if (edition.publishers?.length) {
+    score += 3;
+  }
+  if (typeof edition.number_of_pages === "number") {
+    score += 2;
+  }
+  return score;
+}
+
+function editionSummary(edition: OpenLibraryEditionPayload): Record<string, JsonValue> {
+  const summary: Record<string, JsonValue> = {};
+  addSummaryString(summary, "id", openLibraryEditionIdFromKey(edition.key));
+  addSummaryString(summary, "title", edition.title);
+  addSummaryString(summary, "subtitle", edition.subtitle);
+  addSummaryString(summary, "fullTitle", edition.full_title);
+  addSummaryString(summary, "editionName", edition.edition_name);
+  addSummaryString(summary, "publishDate", edition.publish_date);
+  addSummaryString(summary, "physicalFormat", edition.physical_format);
+  addSummaryNumber(summary, "numberOfPages", edition.number_of_pages);
+  addSummaryArray(summary, "publishers", edition.publishers);
+  addSummaryArray(summary, "isbn10", edition.isbn_10);
+  addSummaryArray(summary, "isbn13", edition.isbn_13);
+  addSummaryArray(summary, "languages", languageKeys(edition.languages));
+  addSummaryArray(summary, "translatedFrom", languageKeys(edition.translated_from));
+  addSummaryString(summary, "translationOf", edition.translation_of);
+  addSummaryArray(summary, "covers", edition.covers);
+  addSummaryArray(summary, "sourceRecords", edition.source_records);
+  addSummaryArray(summary, "localId", edition.local_id);
+  if (edition.contributors?.length) {
+    summary.contributors = edition.contributors as JsonValue;
+  }
+  if (edition.identifiers && Object.keys(edition.identifiers).length) {
+    summary.identifiers = edition.identifiers as JsonValue;
+  }
+  if (edition.classifications && Object.keys(edition.classifications).length) {
+    summary.classifications = edition.classifications as JsonValue;
+  }
+  return summary;
+}
+
+function addSummaryString(summary: Record<string, JsonValue>, key: string, value: string | undefined): void {
+  const clean = stringField(value);
+  if (clean) {
+    summary[key] = clean;
+  }
+}
+
+function addSummaryNumber(summary: Record<string, JsonValue>, key: string, value: number | undefined): void {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    summary[key] = value;
+  }
+}
+
+function addSummaryArray(summary: Record<string, JsonValue>, key: string, value: unknown[] | undefined): void {
+  if (value?.length) {
+    summary[key] = value as JsonValue;
+  }
+}
+
+function languageKeys(value: { key?: string }[] | undefined): string[] {
+  return uniqueStrings(
+    (value ?? [])
+      .map((item) => stringField(item.key)?.replace(/^\/languages\//, ""))
+      .filter((item): item is string => Boolean(item))
+  );
+}
+
+function combineEditionRecords(editions: OpenLibraryEditionPayload[], key: "classifications" | "identifiers"): JsonValue | undefined {
+  const combined: Record<string, JsonValue[]> = {};
+  for (const edition of editions) {
+    const record = edition[key];
+    if (!record) {
+      continue;
+    }
+    for (const [recordKey, value] of Object.entries(record)) {
+      if (value === undefined || value === null || (Array.isArray(value) && value.length === 0)) {
+        continue;
+      }
+      const values = Array.isArray(value) ? value : [value];
+      for (const item of values) {
+        combined[recordKey] = combined[recordKey] ?? [];
+        if (!combined[recordKey].some((existing) => JSON.stringify(existing) === JSON.stringify(item))) {
+          combined[recordKey].push(item);
+        }
+      }
+    }
+  }
+  return Object.keys(combined).length ? combined : undefined;
+}
+
+function classificationSubjects(subjects: string[] | undefined, type: "dewey" | "lc"): string[] {
+  const values: string[] = [];
+  for (const subject of subjects ?? []) {
+    const clean = stringField(subject);
+    if (!clean) {
+      continue;
+    }
+    if (type === "dewey" && /^\d{3}(?:\/|\.)/.test(clean)) {
+      values.push(clean);
+    }
+    if (type === "lc" && /^[A-Za-z]{1,3}\d{1,5}(?:\.\w+)?(?:\s+\w+)*$/.test(clean) && !/^\d/.test(clean)) {
+      values.push(clean);
+    }
+  }
+  return uniqueStrings(values);
+}
+
+function uniqueStrings(values: (string | undefined)[] | undefined): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values ?? []) {
+    const clean = stringField(value);
+    if (clean && !seen.has(clean)) {
+      seen.add(clean);
+      result.push(clean);
+    }
+  }
+  return result;
+}
+
+function uniqueObjects<T extends Record<string, unknown>>(values: T[]): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const value of values) {
+    const key = JSON.stringify(value);
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(value);
+    }
+  }
+  return result;
 }
 
 function addTag(data: ZuuidData, value: string | undefined): void {
@@ -368,6 +659,13 @@ function addTag(data: ZuuidData, value: string | undefined): void {
 function addArrayDetail(data: ZuuidData, key: string, value: string[] | undefined): void {
   const clean = value?.map((item) => stringField(item)).filter((item): item is string => Boolean(item));
   if (clean?.length) {
+    data.details.push({ key, value: clean, source: OPEN_LIBRARY_PROVIDER });
+  }
+}
+
+function addDetail(data: ZuuidData, key: string, value: string | undefined): void {
+  const clean = stringField(value);
+  if (clean) {
     data.details.push({ key, value: clean, source: OPEN_LIBRARY_PROVIDER });
   }
 }
@@ -406,6 +704,11 @@ function normalizeOpenLibraryBookId(value: string): string {
 function openLibraryWorkIdFromKey(value: string | undefined): string | undefined {
   const normalized = stringField(value)?.replace(/^\/works\//, "");
   return normalized && /^OL\d+W$/i.test(normalized) ? normalized.toUpperCase() : undefined;
+}
+
+function openLibraryEditionIdFromKey(value: string | undefined): string | undefined {
+  const normalized = stringField(value)?.replace(/^\/books\//, "");
+  return normalized && /^OL\d+M$/i.test(normalized) ? normalized.toUpperCase() : undefined;
 }
 
 function openLibraryAuthorIdFromKey(value: string | undefined): string | undefined {
