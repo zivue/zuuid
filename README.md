@@ -1,8 +1,10 @@
 # @zivue/zuuid
 
-Search, fetch, and normalize media metadata from external providers into a shared Zivue/Zuuid data shape.
+Search, fetch, and normalize media metadata from external providers into a shared Zuuid data shape.
 
-This package is meant to be used by apps that need provider-backed lookup and transformation, but do not want provider-specific response shapes leaking through the app. It currently supports TMDB movies, TV shows, and people, plus Open Library books and authors.
+This package is meant to be used by apps that need provider-backed lookup and transformation, but do not want provider-specific response shapes leaking through the app.
+
+TMDB and Open Library include live search/fetch clients. Additional providers currently expose source-record transformers: you provide the raw provider payload, and this package normalizes it into `ZuuidData`.
 
 Storage, caching, indexing, review state, object-store keys, and persistence belong in a layer outside this package.
 
@@ -59,7 +61,7 @@ console.log(movies?.results[0]);
 //   title: "Fight Club",
 //   date: "1999-10-15",
 //   cover: "https://image.tmdb.org/t/p/w500/...",
-//   rating: 8.4,
+//   rating: 4.2,
 //   weight: 20.0,
 //   relationType: null,
 //   attribute: null,
@@ -96,6 +98,8 @@ console.log(movie);
 
 Search results, relations, and recommendations share the same lightweight list item fields: `id`, `zuuid`, `category`, `title`, `date`, `cover`, `rating`, `weight`, `relationType`, `attribute`, and `order`.
 
+Ratings are normalized to a `0-5` scale when the provider exposes a compatible numeric score. The original provider score is preserved in details as `provider_rating` for providers whose native scale differs.
+
 ## Supported Providers
 
 | Provider | Category | Search | Fetch | Transform |
@@ -105,6 +109,18 @@ Search results, relations, and recommendations share the same lightweight list i
 | TMDB | person | yes | yes | yes |
 | Open Library | book | yes | yes | yes |
 | Open Library | author | yes | yes | yes |
+| ComicVine | volume, issue, story_arc, character, person, publisher | no | no | yes |
+| GamesDB | game, platform | no | no | yes |
+| Jikan | anime, manga, producer, magazine, character, person | no | no | yes |
+| MusicBrainz | release, release-group, recording, artist, label, work | no | no | yes |
+| OpenFoodFacts | product | no | no | yes |
+| OpenStreetMap | city, country, place, venue | no | no | yes |
+| Podcast / iTunes | podcast | no | no | yes |
+| Setlist.fm | setlist, artist, venue | no | no | yes |
+| Ticketmaster | event, attraction, venue | no | no | yes |
+| Wger | exercise, equipment | no | no | yes |
+
+For transformer-only providers, "Search" and "Fetch" are marked `no` because this package does not perform those HTTP requests yet. Use your own provider client or stored payloads, wrap the payload in a `SourceRecord`, and call the category transformer.
 
 ## TMDB Credentials
 
@@ -204,6 +220,33 @@ const source = await tmdb.fetchMovieSourceRecord({ id: 550 });
 const movie = source ? await transformTmdbMovie(source, tmdb.transformOptions()) : undefined;
 ```
 
+The source record contains the raw payload:
+
+```ts
+console.log(source?.payload);
+```
+
+The transform result is normalized `ZuuidData`:
+
+```ts
+console.log(movie?.primaryTitle);
+console.log(movie?.externalIds);
+console.log(movie?.provenance);
+```
+
+For transformer-only providers:
+
+```ts
+import { createSourceRecord, transformGamesDbGame } from "@zivue/zuuid";
+
+const source = await createSourceRecord({
+  source: { provider: "gamesdb", category: "game", externalId: "17444" },
+  payload: rawGamesDbPayload
+});
+
+const game = await transformGamesDbGame(source);
+```
+
 Category-specific imports are available:
 
 ```ts
@@ -212,6 +255,11 @@ import { transformTmdbTv } from "@zivue/zuuid/providers/tmdb/tv";
 import { transformTmdbPerson } from "@zivue/zuuid/providers/tmdb/person";
 import { transformOpenLibraryBook } from "@zivue/zuuid/providers/openlibrary/book";
 import { transformOpenLibraryAuthor } from "@zivue/zuuid/providers/openlibrary/author";
+import { transformMusicBrainzReleaseGroup } from "@zivue/zuuid/providers/musicbrainz/release-group";
+import { transformComicVineIssue } from "@zivue/zuuid/providers/comicvine/issue";
+import { transformJikanProducer } from "@zivue/zuuid/providers/jikan/producer";
+import { transformOpenStreetMapVenue } from "@zivue/zuuid/providers/openstreetmap/venue";
+import { transformWgerEquipment } from "@zivue/zuuid/providers/wger/equipment";
 ```
 
 ## Data Model
@@ -277,7 +325,7 @@ zuuid.read.openlibrary?.search({ query: "The Lord of the Rings" });
 zuuid.read.openlibrary?.fetch({ id: "OL82563W" });
 ```
 
-## CLI Examples
+## Example Scripts
 
 The examples read `.env` from the repo root:
 
@@ -309,7 +357,35 @@ npm run example:fetch -- book OL82563W
 npm run example:fetch -- author OL23919A
 ```
 
-The examples write debug output to `data/tmdb/...` or `data/openlibrary/...`.
+Fetch fixture-backed transformer examples:
+
+```sh
+npm run example:fetch -- gamesdb:game 17444
+npm run example:fetch -- gamesdb:platform 6
+npm run example:fetch -- musicbrainz:release-group aaa50249-1e6b-3910-b830-7e2fb622a8c4
+npm run example:fetch -- musicbrainz:recording 0b5d8c0f-4975-4e44-9e67-0a5f1b5939f6
+npm run example:fetch -- comicvine:issue 101
+npm run example:fetch -- comicvine:story_arc 201
+npm run example:fetch -- jikan:producer 14
+npm run example:fetch -- jikan:magazine 1
+npm run example:fetch -- openfoodfacts:product 3017620422003
+npm run example:fetch -- openstreetmap:venue W123456
+npm run example:fetch -- wger:equipment 7
+```
+
+`example:fetch` writes both raw and transformed JSON:
+
+```text
+data/<provider>/<category>/<id>.raw.json
+data/<provider>/<category>/<id>.zuuid.json
+```
+
+`example:search` writes raw and transformed search JSON:
+
+```text
+data/<provider>/search/<category>/<query>.raw-search.json
+data/<provider>/search/<category>/<query>.zuuid-search.json
+```
 
 ## API Reference
 
@@ -332,6 +408,23 @@ Provider exports:
 - `transformTmdbPerson(sourceRecord, options?)`
 - `transformOpenLibraryBook(sourceRecord, options?)`
 - `transformOpenLibraryAuthor(sourceRecord, options?)`
+- `transformComicVine(sourceRecord)`
+- `transformGamesDbGame(sourceRecord, options?)`
+- `transformGamesDbPlatform(sourceRecord)`
+- `transformJikan(sourceRecord)`
+- `transformMusicBrainzRelease(sourceRecord, options?)`
+- `transformMusicBrainzReleaseGroup(sourceRecord, options?)`
+- `transformMusicBrainzRecording(sourceRecord)`
+- `transformMusicBrainzArtist(sourceRecord)`
+- `transformMusicBrainzLabel(sourceRecord)`
+- `transformMusicBrainzWork(sourceRecord)`
+- `transformOpenFoodFactsProduct(sourceRecord)`
+- `transformOpenStreetMapPlace(sourceRecord)`
+- `transformPodcast(sourceRecord)`
+- `transformSetlistFm(sourceRecord)`
+- `transformTicketmaster(sourceRecord)`
+- `transformWgerExercise(sourceRecord)`
+- `transformWgerEquipment(sourceRecord)`
 - `searchTmdbMovies(provider, input, options?)`
 - `searchTmdbTv(provider, input, options?)`
 - `searchTmdbPeople(provider, input, options?)`

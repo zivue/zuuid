@@ -1,6 +1,6 @@
 {
   "name": "@zivue/zuuid",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "TypeScript helpers for fetching, searching, and transforming Zuuid datasets.",
   "type": "module",
   "license": "MIT",

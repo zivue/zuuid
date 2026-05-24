@@ -131,6 +131,21 @@ export function formatNumber(value: number): string {
   return value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 
+export function normalizeRating(
+  value: number | undefined | null,
+  fromMin: number,
+  fromMax: number,
+  toMin = 0,
+  toMax = 5
+): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value) || fromMax <= fromMin) {
+    return undefined;
+  }
+  const clamped = Math.min(Math.max(value, fromMin), fromMax);
+  const normalized = ((clamped - fromMin) / (fromMax - fromMin)) * (toMax - toMin) + toMin;
+  return Math.round(normalized * 1000) / 1000;
+}
+
 export async function baseDataFromSource(
   source: SourceRecord,
   provider: string,

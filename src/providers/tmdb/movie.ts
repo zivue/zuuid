@@ -2,6 +2,7 @@ import { createZuuidData, type SearchResponse, type ZuuidData, type ZuuidSearchR
 import { providerZuuid } from "../../identity.js";
 import { attachSourceMetadata, createSourceRecord, type SourceRecord } from "../../source.js";
 import type { JsonValue } from "../../types.js";
+import { normalizeRating } from "../common.js";
 import { TMDB_BACKDROP_BASE_URL, TMDB_POSTER_BASE_URL, TMDB_PROVIDER } from "./constants.js";
 import type { TmdbProvider } from "./client.js";
 import type { TmdbSearchInput, TmdbSearchResponse, TmdbTransformOptions } from "./types.js";
@@ -200,7 +201,7 @@ export async function searchTmdbMovies(
       title,
       date: stringField(result.release_date) ?? null,
       cover: mediaUrl(result.poster_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL) ?? null,
-      rating: typeof result.vote_average === "number" ? result.vote_average : null,
+      rating: normalizeRating(result.vote_average, 0, 10) ?? null,
       weight: typeof result.popularity === "number" ? result.popularity : null,
       relationType: null,
       attribute: null,
@@ -265,7 +266,8 @@ export async function transformTmdbMovie(
   }
 
   if (typeof payload.vote_average === "number") {
-    data.rating = payload.vote_average;
+    data.rating = normalizeRating(payload.vote_average, 0, 10);
+    data.details.push({ key: "provider_rating", value: payload.vote_average, source: TMDB_PROVIDER });
   }
 
   const overview = stringField(payload.overview);
@@ -318,7 +320,6 @@ export async function transformTmdbMovie(
   addArrayDetail(data, "origin_country", payload.origin_country);
   addMovieCertifications(data, payload);
   addStructuredDetail(data, "production_countries", payload.production_countries);
-  addStructuredDetail(data, "release_dates", payload.release_dates?.results);
   addStructuredDetail(data, "spoken_languages", payload.spoken_languages);
   addStructuredDetail(data, "watch_providers", payload.watch_providers?.results);
 
@@ -663,28 +664,14 @@ function addMovieCertifications(data: ZuuidData, payload: TmdbMoviePayload): voi
         continue;
       }
 
-      const certificationData: Record<string, JsonValue> = {
-        region,
-        certification,
-        descriptors: release.descriptors ?? []
-      };
-      const language = stringField(release.iso_639_1);
-      const note = stringField(release.note);
-      const releaseDate = stringField(release.release_date);
-      if (language) {
-        certificationData.language = language;
-      }
-      if (note) {
-        certificationData.note = note;
-      }
-      if (releaseDate) {
-        certificationData.releaseDate = releaseDate;
-      }
-      if (typeof release.type === "number") {
-        certificationData.type = release.type;
+      const certificationData: Record<string, JsonValue> = { region, certification };
+      if (release.descriptors?.length) {
+        certificationData.descriptors = release.descriptors;
       }
 
-      certifications.push(certificationData);
+      if (!certifications.some((item) => item.region === region && item.certification === certification)) {
+        certifications.push(certificationData);
+      }
     }
   }
 

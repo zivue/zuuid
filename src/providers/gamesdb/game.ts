@@ -10,6 +10,7 @@ import {
   arrayField,
   baseDataFromSource,
   finalizeData,
+  normalizeRating,
   numberField,
   objectPayload,
   stringField,
@@ -34,7 +35,9 @@ export async function transformGamesDbGame(
   if (!title) throw new Error("missing required GamesDB game field: game_title");
 
   const data = await baseDataFromSource(source, GAMESDB_PROVIDER, GAMESDB_GAME_CATEGORY, GAMESDB_GAME_CATEGORY, id, title);
-  data.rating = numberField(payload, "rating");
+  const rawRating = numberField(payload, "rating");
+  data.rating = normalizeRating(rawRating, 0, 10);
+  addDetail(data, GAMESDB_PROVIDER, "provider_rating", rawRating);
   data.primaryDate = releaseDate(stringField(payload, "release_date"));
   addDescription(data, GAMESDB_PROVIDER, stringField(payload, "overview"));
   addTagsFromNamedArray(data, payload, "genres");

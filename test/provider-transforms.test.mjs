@@ -195,7 +195,8 @@ test("transformOpenStreetMapPlace maps city details", async () => {
   });
   const data = await transformOpenStreetMapPlace(source);
   assert.equal(data.kind, "visit");
-  assert.equal(Math.abs(data.rating - 7.2) < 0.000001, true);
+  assert.equal(data.rating, 3.6);
+  assert.equal(data.details.some((detail) => detail.key === "provider_rating" && detail.value === 0.72), true);
   assert.equal(data.aliases.some((alias) => alias.value === "オスロ"), true);
   assert.equal(data.externalIds.some((id) => id.source === "wikidata"), true);
 });

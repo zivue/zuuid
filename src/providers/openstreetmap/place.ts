@@ -1,6 +1,6 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
-import { addAlias, addDescription, addDetail, addMedia, addTag, arrayField, baseDataFromSource, finalizeData, nestedString, objectPayload, stringField, valueAsString } from "../common.js";
+import { addAlias, addDescription, addDetail, addMedia, addTag, arrayField, baseDataFromSource, finalizeData, nestedString, normalizeRating, objectPayload, stringField, valueAsString } from "../common.js";
 import { OPENSTREETMAP_CITY_CATEGORY, OPENSTREETMAP_COUNTRY_CATEGORY, OPENSTREETMAP_PLACE_CATEGORY, OPENSTREETMAP_PROVIDER, OPENSTREETMAP_VENUE_CATEGORY } from "./constants.js";
 
 export async function transformOpenStreetMapPlace(source: SourceRecord): Promise<ZuuidData> {
@@ -13,7 +13,9 @@ export async function transformOpenStreetMapPlace(source: SourceRecord): Promise
   if (!id) throw new Error("missing required OpenStreetMap field: place_id");
   if (!title) throw new Error("missing required OpenStreetMap field: name");
   const data = await baseDataFromSource(source, OPENSTREETMAP_PROVIDER, source.source.category, source.source.category, id, title);
-  data.rating = typeof payload.importance === "number" ? payload.importance * 10 : undefined;
+  const rawImportance = typeof payload.importance === "number" ? payload.importance : undefined;
+  data.rating = normalizeRating(rawImportance, 0, 1);
+  addDetail(data, OPENSTREETMAP_PROVIDER, "provider_rating", rawImportance);
   addAlias(data, title, "title", true, OPENSTREETMAP_PROVIDER);
   addNamedetailAliases(data, payload, title);
   addDescription(data, OPENSTREETMAP_PROVIDER, stringField(payload, "display_name"), "en");

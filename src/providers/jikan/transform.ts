@@ -1,6 +1,6 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
-import { addAlias, addDescription, addDetail, addMedia, addRelation, addTag, arrayField, baseDataFromSource, datePrefix, finalizeData, nestedString, objectPayload, stringField, stripHtml, valueAsString } from "../common.js";
+import { addAlias, addDescription, addDetail, addMedia, addRelation, addTag, arrayField, baseDataFromSource, datePrefix, finalizeData, nestedString, normalizeRating, objectPayload, stringField, stripHtml, valueAsString } from "../common.js";
 import { JIKAN_ANIME_CATEGORY, JIKAN_CHARACTER_CATEGORY, JIKAN_MAGAZINE_CATEGORY, JIKAN_MANGA_CATEGORY, JIKAN_PERSON_CATEGORY, JIKAN_PRODUCER_CATEGORY, JIKAN_PROVIDER } from "./constants.js";
 
 export async function transformJikan(source: SourceRecord): Promise<ZuuidData> {
@@ -19,7 +19,9 @@ export async function transformJikanTitle(source: SourceRecord, publicCategory =
   if (!id) throw new Error("missing required Jikan field: mal_id");
   if (!title) throw new Error("missing required Jikan field: title");
   const data = await baseDataFromSource(source, JIKAN_PROVIDER, source.source.category, publicCategory, id, title);
-  data.rating = typeof payload.score === "number" ? payload.score : undefined;
+  const rawScore = typeof payload.score === "number" ? payload.score : undefined;
+  data.rating = normalizeRating(rawScore, 0, 10);
+  addDetail(data, JIKAN_PROVIDER, "provider_rating", rawScore);
   data.primaryDate = datePrefix(nestedString(payload, ["aired", "from"]) ?? nestedString(payload, ["published", "from"]));
   addTitleAliases(data, payload, title);
   addDescription(data, JIKAN_PROVIDER, stringField(payload, "synopsis") ?? stringField(payload, "background"), "en");

@@ -1,8 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 - 2026-05-24
+
+- Normalized provider ratings to a shared `0-5` scale while preserving native provider scores in `provider_rating` details.
+- Trimmed TMDB movie certification details and stopped emitting full `release_dates` detail payloads.
+- Added README documentation for raw source records, transformed output, transformer-only providers, and normalized ratings.
+
+## 0.2.0 - 2026-05-24
 
 - Added Open Library provider support for books and authors.
+- Added transformer providers for ComicVine, GamesDB, Jikan, MusicBrainz, OpenFoodFacts, OpenStreetMap, podcast, Setlist.fm, Ticketmaster, and Wger.
+- Added category subpath exports for new provider transformers.
+- Added MusicBrainz transformers for releases, release groups, recordings, artists, labels, and works.
+- Added fixture-backed fetch examples for transformer-only providers.
+- Expanded category grouping for additional read, listen, play, visit, and people entity categories.
 
 ## 0.1.0 - 2026-05-23
 

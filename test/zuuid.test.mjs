@@ -115,7 +115,8 @@ test("transformTmdbMovie maps a TMDB movie source record into Zuuid data", async
   assert.equal(data.kind, "watch");
   assert.equal(data.category, "movie");
   assert.equal(data.primaryDate, "1999-10-15");
-  assert.equal(data.rating, 8.4);
+  assert.equal(data.rating, 4.2);
+  assert.equal(data.details.some((detail) => detail.key === "provider_rating" && detail.value === 8.4), true);
   assert.deepEqual(data.tags, ["drama", "thriller"]);
   assert.equal(data.externalIds.some((id) => id.source === "tmdb" && id.value === "550"), true);
   assert.equal(data.externalIds.some((id) => id.source === "imdb" && id.value === "tt0137523"), true);
@@ -195,8 +196,8 @@ test("transformTmdbMovie maps rich TMDB movie append payloads", async () => {
   assert.equal(data.media.some((media) => media.mediaCategory === "logo"), true);
   assert.equal(data.details.some((detail) => detail.key === "tagline"), true);
   assert.equal(data.details.some((detail) => detail.key === "origin_country" && Array.isArray(detail.value)), true);
-  assert.equal(data.details.some((detail) => detail.key === "certifications" && detail.value?.[0]?.certification === "R"), true);
-  assert.equal(data.details.some((detail) => detail.key === "release_dates" && detail.value?.[0]?.iso_3166_1 === "US"), true);
+  assert.equal(data.details.some((detail) => detail.key === "certifications" && detail.value?.[0]?.region === "US" && detail.value?.[0]?.certification === "R" && detail.value?.[0]?.releaseDate === undefined), true);
+  assert.equal(data.details.some((detail) => detail.key === "release_dates"), false);
 });
 
 test("TmdbProvider fetchMovieSourceRecord requests movie details with API key credentials", async () => {
@@ -285,7 +286,8 @@ test("transformTmdbTv maps a TMDB tv source record into Zuuid data", async () =>
   assert.equal(data.kind, "watch");
   assert.equal(data.category, "tvshow");
   assert.equal(data.primaryDate, "2011-04-17");
-  assert.equal(data.rating, 8.5);
+  assert.equal(data.rating, 4.25);
+  assert.equal(data.details.some((detail) => detail.key === "provider_rating" && detail.value === 8.5), true);
   assert.equal(data.tags.includes("drama"), true);
   assert.equal(data.externalIds.some((id) => id.source === "imdb" && id.value === "tt0944947"), true);
   assert.equal(data.externalIds.some((id) => id.source === "tvdb" && id.value === "121361"), true);
@@ -554,7 +556,7 @@ test("TmdbProvider searches unified movie, tv, and people results", async () => 
   assert.equal(movies.results[0]?.title, "Fight Club");
   assert.equal(movies.results[0]?.category, "movie");
   assert.equal(movies.results[0]?.date, "1999-10-15");
-  assert.equal(movies.results[0]?.rating, 8.4);
+  assert.equal(movies.results[0]?.rating, 4.2);
   assert.equal(movies.results[0]?.cover?.includes("image.tmdb.org"), true);
   assert.equal(movies.results[0]?.weight, 20);
   assert.equal(movies.results[0]?.attribute, null);

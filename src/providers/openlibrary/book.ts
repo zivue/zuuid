@@ -2,6 +2,7 @@ import { createZuuidData, type SearchResponse, type ZuuidData, type ZuuidSearchR
 import { providerZuuid } from "../../identity.js";
 import { attachSourceMetadata, createSourceRecord, type SourceRecord } from "../../source.js";
 import type { JsonValue } from "../../types.js";
+import { normalizeRating } from "../common.js";
 import { OPEN_LIBRARY_COVER_BASE_URL, OPEN_LIBRARY_PROVIDER } from "./constants.js";
 import type { OpenLibraryProvider } from "./client.js";
 import type { OpenLibrarySearchInput, OpenLibrarySearchResponse, OpenLibraryTransformOptions } from "./types.js";
@@ -221,7 +222,7 @@ export async function transformOpenLibraryBook(
   const preferredEdition = preferredOpenLibraryEdition(payload);
   const rating = numberField(payload.ratings?.summary?.average ?? payload.ratings?.summary?.sortable ?? payload.search?.ratings_average);
   if (rating !== undefined) {
-    data.rating = rating;
+    data.rating = normalizeRating(rating, 0, 5);
     data.details.push({ key: "rating_average", value: rating, source: OPEN_LIBRARY_PROVIDER });
   }
   const ratingCount = numberField(payload.ratings?.summary?.count);
