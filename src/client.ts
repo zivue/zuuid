@@ -1,5 +1,17 @@
 import type { SearchResponse, ZuuidData, ZuuidSearchResult } from "./entity.js";
 import {
+  MusicBrainzProvider,
+  transformMusicBrainzArtist,
+  transformMusicBrainzLabel,
+  transformMusicBrainzRecording,
+  transformMusicBrainzRelease,
+  transformMusicBrainzReleaseGroup,
+  transformMusicBrainzWork,
+  type FetchMusicBrainzInput,
+  type MusicBrainzProviderOptions,
+  type MusicBrainzSearchInput
+} from "./providers/musicbrainz/index.js";
+import {
   OpenLibraryProvider,
   transformOpenLibraryAuthor,
   transformOpenLibraryBook,
@@ -40,6 +52,7 @@ import type { SourceRecord } from "./source.js";
 export type ProviderConfigs = {
   gamesdb?: GamesDbProviderOptions;
   imdb?: ImdbProviderOptions;
+  musicbrainz?: MusicBrainzProviderOptions;
   openlibrary?: OpenLibraryProviderOptions;
   tmdb?: TmdbProviderOptions;
 };
@@ -82,9 +95,21 @@ export type ZuuidClient = {
   people: {
     tmdb?: ProviderClient<FetchTmdbPersonInput, TmdbSearchInput>;
     openlibrary?: ProviderClient<FetchOpenLibraryAuthorInput, OpenLibrarySearchInput>;
+    musicbrainz?: {
+      artist: ProviderClient<FetchMusicBrainzInput, MusicBrainzSearchInput>;
+      label: ProviderClient<FetchMusicBrainzInput, MusicBrainzSearchInput>;
+    };
   };
   read: {
     openlibrary?: ProviderClient<FetchOpenLibraryBookInput, OpenLibrarySearchInput>;
+  };
+  listen: {
+    musicbrainz?: {
+      release: ProviderClient<FetchMusicBrainzInput, MusicBrainzSearchInput>;
+      releaseGroup: ProviderClient<FetchMusicBrainzInput, MusicBrainzSearchInput>;
+      recording: ProviderClient<FetchMusicBrainzInput, MusicBrainzSearchInput>;
+      work: ProviderClient<FetchMusicBrainzInput, MusicBrainzSearchInput>;
+    };
   };
   play: {
     gamesdb?: {
@@ -97,6 +122,7 @@ export type ZuuidClient = {
 export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
   const gamesdb = config.providers?.gamesdb ? new GamesDbProvider(config.providers.gamesdb) : undefined;
   const imdb = config.providers?.imdb ? new ImdbProvider(config.providers.imdb) : undefined;
+  const musicbrainz = config.providers?.musicbrainz ? new MusicBrainzProvider(config.providers.musicbrainz) : undefined;
   const openlibrary = config.providers?.openlibrary ? new OpenLibraryProvider(config.providers.openlibrary) : undefined;
   const tmdb = config.providers?.tmdb ? new TmdbProvider(config.providers.tmdb) : undefined;
 
@@ -155,6 +181,24 @@ export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
             searchSourceRecords: (input: OpenLibrarySearchInput) => openlibrary.searchAuthorSourceRecords(input),
             transform: (source: SourceRecord) => transformOpenLibraryAuthor(source, openlibrary.transformOptions())
           })
+        : undefined,
+      musicbrainz: musicbrainz
+        ? Object.freeze({
+            artist: Object.freeze({
+              fetch: (input: FetchMusicBrainzInput) => musicbrainz.fetchArtist(input),
+              fetchSourceRecord: (input: FetchMusicBrainzInput) => musicbrainz.fetchArtistSourceRecord(input),
+              search: (input: MusicBrainzSearchInput) => musicbrainz.searchArtists(input),
+              searchSourceRecords: (input: MusicBrainzSearchInput) => musicbrainz.searchArtistSourceRecords(input),
+              transform: (source: SourceRecord) => transformMusicBrainzArtist(source)
+            }),
+            label: Object.freeze({
+              fetch: (input: FetchMusicBrainzInput) => musicbrainz.fetchLabel(input),
+              fetchSourceRecord: (input: FetchMusicBrainzInput) => musicbrainz.fetchLabelSourceRecord(input),
+              search: (input: MusicBrainzSearchInput) => musicbrainz.searchLabels(input),
+              searchSourceRecords: (input: MusicBrainzSearchInput) => musicbrainz.searchLabelSourceRecords(input),
+              transform: (source: SourceRecord) => transformMusicBrainzLabel(source)
+            })
+          })
         : undefined
     }),
     read: Object.freeze({
@@ -165,6 +209,40 @@ export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
             search: (input: OpenLibrarySearchInput) => openlibrary.searchBooks(input),
             searchSourceRecords: (input: OpenLibrarySearchInput) => openlibrary.searchBookSourceRecords(input),
             transform: (source: SourceRecord) => transformOpenLibraryBook(source, openlibrary.transformOptions())
+          })
+        : undefined
+    }),
+    listen: Object.freeze({
+      musicbrainz: musicbrainz
+        ? Object.freeze({
+            release: Object.freeze({
+              fetch: (input: FetchMusicBrainzInput) => musicbrainz.fetchRelease(input),
+              fetchSourceRecord: (input: FetchMusicBrainzInput) => musicbrainz.fetchReleaseSourceRecord(input),
+              search: (input: MusicBrainzSearchInput) => musicbrainz.searchReleases(input),
+              searchSourceRecords: (input: MusicBrainzSearchInput) => musicbrainz.searchReleaseSourceRecords(input),
+              transform: (source: SourceRecord) => transformMusicBrainzRelease(source, { coverArtBaseUrl: musicbrainz.coverArtBaseUrl })
+            }),
+            releaseGroup: Object.freeze({
+              fetch: (input: FetchMusicBrainzInput) => musicbrainz.fetchReleaseGroup(input),
+              fetchSourceRecord: (input: FetchMusicBrainzInput) => musicbrainz.fetchReleaseGroupSourceRecord(input),
+              search: (input: MusicBrainzSearchInput) => musicbrainz.searchReleaseGroups(input),
+              searchSourceRecords: (input: MusicBrainzSearchInput) => musicbrainz.searchReleaseGroupSourceRecords(input),
+              transform: (source: SourceRecord) => transformMusicBrainzReleaseGroup(source, { coverArtBaseUrl: musicbrainz.releaseGroupCoverArtBaseUrl })
+            }),
+            recording: Object.freeze({
+              fetch: (input: FetchMusicBrainzInput) => musicbrainz.fetchRecording(input),
+              fetchSourceRecord: (input: FetchMusicBrainzInput) => musicbrainz.fetchRecordingSourceRecord(input),
+              search: (input: MusicBrainzSearchInput) => musicbrainz.searchRecordings(input),
+              searchSourceRecords: (input: MusicBrainzSearchInput) => musicbrainz.searchRecordingSourceRecords(input),
+              transform: (source: SourceRecord) => transformMusicBrainzRecording(source)
+            }),
+            work: Object.freeze({
+              fetch: (input: FetchMusicBrainzInput) => musicbrainz.fetchWork(input),
+              fetchSourceRecord: (input: FetchMusicBrainzInput) => musicbrainz.fetchWorkSourceRecord(input),
+              search: (input: MusicBrainzSearchInput) => musicbrainz.searchWorks(input),
+              searchSourceRecords: (input: MusicBrainzSearchInput) => musicbrainz.searchWorkSourceRecords(input),
+              transform: (source: SourceRecord) => transformMusicBrainzWork(source)
+            })
           })
         : undefined
     }),

@@ -4,6 +4,7 @@ import {
   createSourceRecord,
   transformComicVine,
   GamesDbProvider,
+  MusicBrainzProvider,
   transformGamesDbGame,
   transformGamesDbPlatform,
   transformJikan,
@@ -105,6 +106,36 @@ test("GamesDbProvider fetches and searches games", async () => {
   assert.deepEqual(source?.source, { provider: "gamesdb", category: "game", externalId: "17444" });
   assert.equal(search.results[0]?.title, "Chrono Trigger");
   assert.equal(search.results[0]?.cover, "https://cdn.test/front.jpg");
+});
+
+
+test("MusicBrainzProvider fetches and searches release groups", async () => {
+  const requested = [];
+  const provider = new MusicBrainzProvider({
+    apiBase: "https://musicbrainz.test/ws/2",
+    userAgent: "zuuid-test/1.0",
+    fetch: async (url, init) => {
+      const parsed = new URL(url.toString());
+      requested.push({ url: parsed, init });
+      if (parsed.pathname.endsWith("/release-group/aaa50249-1e6b-3910-b830-7e2fb622a8c4")) {
+        return new Response(JSON.stringify({ id: "aaa50249-1e6b-3910-b830-7e2fb622a8c4", title: "Kind of Blue", "first-release-date": "1959-08-17", "primary-type": "Album" }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ count: 1, offset: 0, "release-groups": [{ id: "aaa50249-1e6b-3910-b830-7e2fb622a8c4", title: "Kind of Blue", "first-release-date": "1959-08-17", "primary-type": "Album", score: 100 }] }), { status: 200 });
+    }
+  });
+
+  const source = await provider.fetchReleaseGroupSourceRecord({ id: "AAA50249-1E6B-3910-B830-7E2FB622A8C4" });
+  const search = await provider.searchReleaseGroups({ query: "Kind of Blue", limit: 10 });
+
+  assert.equal(requested[0].url.pathname, "/ws/2/release-group/aaa50249-1e6b-3910-b830-7e2fb622a8c4");
+  assert.equal(requested[0].url.searchParams.get("fmt"), "json");
+  assert.equal(requested[0].url.searchParams.get("inc")?.includes("artists"), true);
+  assert.equal(requested[0].init.headers["user-agent"], "zuuid-test/1.0");
+  assert.deepEqual(source?.source, { provider: "musicbrainz", category: "release-group", externalId: "aaa50249-1e6b-3910-b830-7e2fb622a8c4" });
+  assert.equal(search.results[0]?.title, "Kind of Blue");
+  assert.equal(search.results[0]?.category, "release_group");
+  assert.equal(search.results[0]?.date, "1959-08-17");
+  assert.equal(search.results[0]?.weight, 100);
 });
 
 test("transformMusicBrainzRelease maps release metadata", async () => {

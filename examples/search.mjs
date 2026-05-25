@@ -1,4 +1,4 @@
-import { createZuuidClient, OpenLibraryProvider, TmdbProvider } from "../dist/index.js";
+import { createZuuidClient, MusicBrainzProvider, OpenLibraryProvider, TmdbProvider } from "../dist/index.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 loadDotEnv();
@@ -20,10 +20,12 @@ if (requiresTmdbCredentials(category) && !credentials) {
 const zuuid = createZuuidClient({
   providers: {
     ...(credentials ? { tmdb: credentials.config } : {}),
+    musicbrainz: {},
     openlibrary: {}
   }
 });
 const tmdb = credentials ? new TmdbProvider(credentials.config) : undefined;
+const musicbrainz = new MusicBrainzProvider();
 const openlibrary = new OpenLibraryProvider();
 
 if (requiresTmdbCredentials(category) && credentials) {
@@ -35,7 +37,7 @@ if (requiresTmdbCredentials(category) && credentials?.apiKeyLooksLikeBearerToken
 
 try {
   const search = await searchUnified(zuuid, category, query);
-  const raw = await searchRaw(tmdb, category, query);
+  const raw = await searchRaw(tmdb, musicbrainz, category, query);
 
   writeDebugJson(category, query, search, raw);
   console.log(JSON.stringify(search, null, 2));
@@ -65,12 +67,24 @@ async function searchUnified(client, category, query) {
       return client.people.openlibrary?.search({ query }) ?? emptySearchResponse();
     case "book":
       return client.read.openlibrary?.search({ query }) ?? emptySearchResponse();
+    case "release":
+      return client.listen.musicbrainz?.release.search({ query }) ?? emptySearchResponse();
+    case "release-group":
+      return client.listen.musicbrainz?.releaseGroup.search({ query }) ?? emptySearchResponse();
+    case "recording":
+      return client.listen.musicbrainz?.recording.search({ query }) ?? emptySearchResponse();
+    case "artist":
+      return client.people.musicbrainz?.artist.search({ query }) ?? emptySearchResponse();
+    case "label":
+      return client.people.musicbrainz?.label.search({ query }) ?? emptySearchResponse();
+    case "work":
+      return client.listen.musicbrainz?.work.search({ query }) ?? emptySearchResponse();
     default:
       throw new Error(`Unsupported search category: ${category}`);
   }
 }
 
-async function searchRaw(tmdb, category, query) {
+async function searchRaw(tmdb, musicbrainz, category, query) {
   switch (category) {
     case "movie":
       return tmdb?.searchMovieSourceRecords({ query }) ?? emptySearchResponse();
@@ -82,13 +96,25 @@ async function searchRaw(tmdb, category, query) {
       return openlibrary.searchAuthorSourceRecords({ query });
     case "book":
       return openlibrary.searchBookSourceRecords({ query });
+    case "release":
+      return musicbrainz.searchReleaseSourceRecords({ query });
+    case "release-group":
+      return musicbrainz.searchReleaseGroupSourceRecords({ query });
+    case "recording":
+      return musicbrainz.searchRecordingSourceRecords({ query });
+    case "artist":
+      return musicbrainz.searchArtistSourceRecords({ query });
+    case "label":
+      return musicbrainz.searchLabelSourceRecords({ query });
+    case "work":
+      return musicbrainz.searchWorkSourceRecords({ query });
     default:
       throw new Error(`Unsupported search category: ${category}`);
   }
 }
 
 function writeDebugJson(category, query, results, raw) {
-  const provider = isOpenLibraryCategory(category) ? "openlibrary" : "tmdb";
+  const provider = isOpenLibraryCategory(category) ? "openlibrary" : isMusicBrainzCategory(category) ? "musicbrainz" : "tmdb";
   const directory = `data/${provider}/search/${category}`;
   const slug = querySlug(query);
   mkdirSync(directory, { recursive: true });
@@ -119,6 +145,9 @@ function normalizeCategory(value) {
   if (normalized === "read") {
     return "book";
   }
+  if (normalized === "release_group") {
+    return "release-group";
+  }
   return normalized;
 }
 
@@ -134,9 +163,24 @@ function defaultQuery(category) {
       return "J. K. Rowling";
     case "book":
       return "The Lord of the Rings";
+    case "release":
+    case "release-group":
+      return "Kind of Blue";
+    case "recording":
+      return "So What";
+    case "artist":
+      return "Miles Davis";
+    case "label":
+      return "Columbia";
+    case "work":
+      return "So What";
     default:
       return "Fight Club";
   }
+}
+
+function isMusicBrainzCategory(category) {
+  return category === "release" || category === "release-group" || category === "recording" || category === "artist" || category === "label" || category === "work";
 }
 
 function tmdbCredentialsFromEnv() {

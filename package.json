@@ -1,6 +1,6 @@
 {
   "name": "@zivue/zuuid",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "TypeScript helpers for fetching, searching, and transforming Zuuid datasets.",
   "type": "module",
   "license": "MIT",
@@ -255,6 +255,10 @@
     "./providers/gamesdb/client": {
       "types": "./dist/providers/gamesdb/client.d.ts",
       "import": "./dist/providers/gamesdb/client.js"
+    },
+    "./providers/musicbrainz/client": {
+      "types": "./dist/providers/musicbrainz/client.d.ts",
+      "import": "./dist/providers/musicbrainz/client.js"
     }
   },
   "types": "./dist/index.d.ts",

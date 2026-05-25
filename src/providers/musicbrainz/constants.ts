@@ -7,3 +7,5 @@ export const MUSICBRAINZ_LABEL_CATEGORY = "label";
 export const MUSICBRAINZ_WORK_CATEGORY = "work";
 export const MUSICBRAINZ_COVER_ART_BASE_URL = "https://coverartarchive.org/release";
 export const MUSICBRAINZ_RELEASE_GROUP_COVER_ART_BASE_URL = "https://coverartarchive.org/release-group";
+export const MUSICBRAINZ_API_BASE = "https://musicbrainz.org/ws/2";
+export const MUSICBRAINZ_DEFAULT_USER_AGENT = "@zivue/zuuid/0.2.3 (https://github.com/zivue/zuuid)";

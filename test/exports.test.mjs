@@ -8,6 +8,7 @@ test("package root exports the public API", async () => {
   assert.equal(typeof root.providerZuuid, "function");
   assert.equal(typeof root.TmdbProvider, "function");
   assert.equal(typeof root.GamesDbProvider, "function");
+  assert.equal(typeof root.MusicBrainzProvider, "function");
   assert.equal(typeof root.ImdbProvider, "function");
   assert.equal(typeof root.OpenLibraryProvider, "function");
   assert.equal(typeof root.transformOpenLibraryAuthor, "function");
@@ -29,6 +30,14 @@ test("tmdb provider subpath exports category helpers", async () => {
   assert.equal(typeof tmdb.searchTmdbMovies, "function");
   assert.equal(typeof tmdb.searchTmdbTv, "function");
   assert.equal(typeof tmdb.searchTmdbPeople, "function");
+});
+
+test("musicbrainz provider subpath exports client and transformers", async () => {
+  const musicbrainz = await import("../dist/providers/musicbrainz/index.js");
+
+  assert.equal(typeof musicbrainz.MusicBrainzProvider, "function");
+  assert.equal(typeof musicbrainz.transformMusicBrainzRelease, "function");
+  assert.equal(typeof musicbrainz.transformMusicBrainzArtist, "function");
 });
 
 test("gamesdb provider subpath exports client and transformers", async () => {
@@ -65,6 +74,7 @@ test("category subpaths are importable", async () => {
   const book = await import("../dist/providers/openlibrary/book.js");
   const imdbMovie = await import("../dist/providers/imdb/movie.js");
   const gamesdbPlatform = await import("../dist/providers/gamesdb/platform.js");
+  const musicbrainzClient = await import("../dist/providers/musicbrainz/client.js");
 
   assert.equal(typeof movie.transformTmdbMovie, "function");
   assert.equal(typeof movie.searchTmdbMovies, "function");
@@ -78,6 +88,7 @@ test("category subpaths are importable", async () => {
   assert.equal(typeof book.searchOpenLibraryBooks, "function");
   assert.equal(typeof imdbMovie.transformImdbMovie, "function");
   assert.equal(typeof gamesdbPlatform.transformGamesDbPlatform, "function");
+  assert.equal(typeof musicbrainzClient.MusicBrainzProvider, "function");
 });
 
 test("package self-reference exports match npm entry points", async () => {
@@ -87,6 +98,7 @@ test("package self-reference exports match npm entry points", async () => {
   const tv = await import("@zivue/zuuid/providers/tmdb/tv");
   const person = await import("@zivue/zuuid/providers/tmdb/person");
   const gamesdb = await import("@zivue/zuuid/providers/gamesdb");
+  const musicbrainz = await import("@zivue/zuuid/providers/musicbrainz");
   const imdb = await import("@zivue/zuuid/providers/imdb");
   const imdbMovie = await import("@zivue/zuuid/providers/imdb/movie");
   const openlibrary = await import("@zivue/zuuid/providers/openlibrary");
@@ -96,6 +108,7 @@ test("package self-reference exports match npm entry points", async () => {
   assert.equal(typeof root.createZuuidClient, "function");
   assert.equal(typeof tmdb.TmdbProvider, "function");
   assert.equal(typeof gamesdb.GamesDbProvider, "function");
+  assert.equal(typeof musicbrainz.MusicBrainzProvider, "function");
   assert.equal(typeof movie.transformTmdbMovie, "function");
   assert.equal(typeof tv.transformTmdbTv, "function");
   assert.equal(typeof person.transformTmdbPerson, "function");

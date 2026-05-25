@@ -1,12 +1,19 @@
 import {
   GamesDbProvider,
   ImdbProvider,
+  MusicBrainzProvider,
   OpenLibraryProvider,
   TmdbProvider,
   transformGamesDbGame,
   transformGamesDbPlatform,
   transformImdbMovie,
   transformImdbTv,
+  transformMusicBrainzArtist,
+  transformMusicBrainzLabel,
+  transformMusicBrainzRecording,
+  transformMusicBrainzRelease,
+  transformMusicBrainzReleaseGroup,
+  transformMusicBrainzWork,
   transformOpenLibraryAuthor,
   transformOpenLibraryBook,
   transformTmdbMovie,
@@ -46,6 +53,7 @@ if (requiresTmdbCredentials(target) && !bearerToken && !apiKey) {
 
 const gamesdb = configuredGamesDbApiKey ? new GamesDbProvider({ apiKey: configuredGamesDbApiKey }) : undefined;
 const imdb = new ImdbProvider();
+const musicbrainz = new MusicBrainzProvider();
 const tmdb = bearerToken || apiKey ? new TmdbProvider(bearerToken ? { bearerToken } : { apiKey }) : undefined;
 const openlibrary = new OpenLibraryProvider();
 if (requiresTmdbCredentials(target) && tmdb) {
@@ -64,6 +72,24 @@ try {
   } else if (target.provider === "gamesdb" && gamesdb && category === "platform") {
     source = await gamesdb?.fetchPlatformSourceRecord({ id });
     transformed = source ? await transformGamesDbPlatform(source, gamesdb?.transformOptions()) : undefined;
+  } else if (target.provider === "musicbrainz" && category === "release") {
+    source = await musicbrainz.fetchReleaseSourceRecord({ id });
+    transformed = source ? await transformMusicBrainzRelease(source, musicbrainz.transformOptions()) : undefined;
+  } else if (target.provider === "musicbrainz" && category === "release-group") {
+    source = await musicbrainz.fetchReleaseGroupSourceRecord({ id });
+    transformed = source ? await transformMusicBrainzReleaseGroup(source, { coverArtBaseUrl: musicbrainz.releaseGroupCoverArtBaseUrl }) : undefined;
+  } else if (target.provider === "musicbrainz" && category === "recording") {
+    source = await musicbrainz.fetchRecordingSourceRecord({ id });
+    transformed = source ? await transformMusicBrainzRecording(source) : undefined;
+  } else if (target.provider === "musicbrainz" && category === "artist") {
+    source = await musicbrainz.fetchArtistSourceRecord({ id });
+    transformed = source ? await transformMusicBrainzArtist(source) : undefined;
+  } else if (target.provider === "musicbrainz" && category === "label") {
+    source = await musicbrainz.fetchLabelSourceRecord({ id });
+    transformed = source ? await transformMusicBrainzLabel(source) : undefined;
+  } else if (target.provider === "musicbrainz" && category === "work") {
+    source = await musicbrainz.fetchWorkSourceRecord({ id });
+    transformed = source ? await transformMusicBrainzWork(source) : undefined;
   } else if (target.provider === "imdb" && category === "movie") {
     source = await imdb.fetchMovieSourceRecord({ id });
     transformed = source ? await transformImdbMovie(source, imdb.transformOptions()) : undefined;
@@ -129,7 +155,13 @@ function liveExamples() {
     { target: "imdb:movie", id: "tt0137523" },
     { target: "imdb:tv", id: "tt0944947" },
     { target: "gamesdb:game", id: "17444" },
-    { target: "gamesdb:platform", id: "6" }
+    { target: "gamesdb:platform", id: "6" },
+    { target: "musicbrainz:release", id: "f5093c06-23e3-404f-aeaa-40f72885ee3a" },
+    { target: "musicbrainz:release-group", id: "aaa50249-1e6b-3910-b830-7e2fb622a8c4" },
+    { target: "musicbrainz:recording", id: "0b5d8c0f-4975-4e44-9e67-0a5f1b5939f6" },
+    { target: "musicbrainz:artist", id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a" },
+    { target: "musicbrainz:label", id: "a24c1f3d-2e21-487b-b15e-3b419b6483bc" },
+    { target: "musicbrainz:work", id: "0e3d8d4d-7b6b-3f9b-8a45-9f477f86f30f" }
   ];
 }
 
@@ -245,6 +277,18 @@ function defaultId(target) {
       return "17444";
     case "gamesdb:platform":
       return "6";
+    case "musicbrainz:release":
+      return "f5093c06-23e3-404f-aeaa-40f72885ee3a";
+    case "musicbrainz:release-group":
+      return "aaa50249-1e6b-3910-b830-7e2fb622a8c4";
+    case "musicbrainz:recording":
+      return "0b5d8c0f-4975-4e44-9e67-0a5f1b5939f6";
+    case "musicbrainz:artist":
+      return "561d854a-6a28-4aa7-8c99-323e6ce46c2a";
+    case "musicbrainz:label":
+      return "a24c1f3d-2e21-487b-b15e-3b419b6483bc";
+    case "musicbrainz:work":
+      return "0e3d8d4d-7b6b-3f9b-8a45-9f477f86f30f";
     default:
       return "550";
   }

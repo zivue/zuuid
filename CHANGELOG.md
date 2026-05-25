@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.3 - 2026-05-25
+
+- Added live MusicBrainz lookup/search support for releases, release groups, recordings, artists, labels, and works.
+- Added MusicBrainz category-first client facades under `listen.musicbrainz` and `people.musicbrainz`, plus a `providers/musicbrainz/client` subpath export.
+- Added MusicBrainz fetch/search examples and README usage documentation.
+- Added an IMDb suggestion-data fallback for challenge pages so known title IDs still resolve core metadata such as title, year, poster, type, rank, and cast summary.
+
 ## 0.2.2 - 2026-05-25
 
 - Added IMDb fetch-by-ID scraper support for movie and TV title pages.

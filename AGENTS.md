@@ -28,7 +28,7 @@ npm run example:fetch -- gamesdb:game 17444
 npm run example:search -- movie "Fight Club"
 ```
 
-TMDB examples require `TMDB_BEARER_TOKEN`, `TMDB_READ_ACCESS_TOKEN`, or `TMDB_API_KEY`. GamesDB examples require `GAMESDB_API_KEY`. Open Library and IMDb fetch-by-ID examples do not require credentials.
+TMDB examples require `TMDB_BEARER_TOKEN`, `TMDB_READ_ACCESS_TOKEN`, or `TMDB_API_KEY`. GamesDB examples require `GAMESDB_API_KEY`. Open Library, MusicBrainz, and IMDb fetch-by-ID examples do not require credentials.
 
 ## Provider Layout
 
@@ -53,7 +53,7 @@ When adding public category modules, update `package.json` `exports` so package 
 
 ## Live Clients vs Transformers
 
-TMDB, Open Library, GamesDB, and IMDb have live fetch paths. Most other providers are transformer-only: they accept a `SourceRecord` containing a real raw provider payload and return `ZuuidData`.
+TMDB, Open Library, GamesDB, MusicBrainz, and IMDb have live fetch paths. Most other providers are transformer-only: they accept a `SourceRecord` containing a real raw provider payload and return `ZuuidData`.
 
 For transformer-only providers:
 

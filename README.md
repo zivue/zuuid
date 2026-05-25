@@ -4,7 +4,7 @@ Search, fetch, and normalize media metadata from external providers into a share
 
 This package is meant to be used by apps that need provider-backed lookup and transformation, but do not want provider-specific response shapes leaking through the app.
 
-TMDB, Open Library, and GamesDB include live search/fetch clients. IMDb includes a fetch-by-ID title-page scraper for movie and TV titles. Additional providers currently expose source-record transformers: you provide the raw provider payload, and this package normalizes it into `ZuuidData`.
+TMDB, Open Library, GamesDB, and MusicBrainz include live search/fetch clients. IMDb includes a fetch-by-ID title-page scraper for movie and TV titles. Additional providers currently expose source-record transformers: you provide the raw provider payload, and this package normalizes it into `ZuuidData`.
 
 Storage, caching, indexing, review state, object-store keys, and persistence belong in a layer outside this package.
 
@@ -114,7 +114,7 @@ Ratings are normalized to a `0-5` scale when the provider exposes a compatible n
 | GamesDB | game | yes | yes | yes |
 | GamesDB | platform | no | yes | yes |
 | Jikan | anime, manga, producer, magazine, character, person | no | no | yes |
-| MusicBrainz | release, release-group, recording, artist, label, work | no | no | yes |
+| MusicBrainz | release, release-group, recording, artist, label, work | yes | yes | yes |
 | OpenFoodFacts | product | no | no | yes |
 | OpenStreetMap | city, country, place, venue | no | no | yes |
 | Podcast / iTunes | podcast | no | no | yes |
@@ -154,9 +154,35 @@ const game = await zuuid.play.gamesdb?.game.fetch({ id: 17444 });
 
 GamesDB transforms accept both simple flat payloads and native TheGamesDB API envelopes with `data.games`, `data.platforms`, lookup maps, and `boxart` image metadata.
 
+
+## MusicBrainz
+
+`MusicBrainzProvider` uses the public MusicBrainz JSON web service. No API key is required, but the provider sends a descriptive `User-Agent` by default and lets you override it.
+
+```ts
+import { MusicBrainzProvider } from "@zivue/zuuid/providers/musicbrainz";
+
+const musicbrainz = new MusicBrainzProvider({
+  userAgent: "your-app/1.0 (you@example.com)"
+});
+
+const release = await musicbrainz.fetchRelease({ id: "f5093c06-23e3-404f-aeaa-40f72885ee3a" });
+const releaseGroups = await musicbrainz.searchReleaseGroups({ query: "Kind of Blue" });
+const artist = await musicbrainz.fetchArtist({ id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a" });
+```
+
+The category-first client exposes MusicBrainz under `listen.musicbrainz` and `people.musicbrainz`:
+
+```ts
+const zuuid = createZuuidClient({ providers: { musicbrainz: {} } });
+
+const album = await zuuid.listen.musicbrainz?.releaseGroup.search({ query: "Kind of Blue" });
+const artist = await zuuid.people.musicbrainz?.artist.search({ query: "Miles Davis" });
+```
+
 ## IMDb Scraper
 
-IMDb can be used as a credential-free alternative source when you already have an IMDb title ID. It scrapes the title page, preserves the fetched HTML and extracted JSON-LD in the raw `SourceRecord`, and transforms the JSON-LD into normalized `ZuuidData`.
+IMDb can be used as a credential-free alternative source when you already have an IMDb title ID. It scrapes the title page, preserves the fetched HTML and extracted JSON-LD in the raw `SourceRecord`, and transforms the JSON-LD into normalized `ZuuidData`. If IMDb serves a challenge page instead of title HTML, the provider falls back to IMDb suggestion data for core fields such as title, year, poster, type, rank, and cast summary.
 
 ```ts
 import { ImdbProvider } from "@zivue/zuuid/providers/imdb";
@@ -374,6 +400,11 @@ zuuid.people.openlibrary?.fetch({ id: "OL23919A" });
 
 zuuid.read.openlibrary?.search({ query: "The Lord of the Rings" });
 zuuid.read.openlibrary?.fetch({ id: "OL82563W" });
+
+zuuid.listen.musicbrainz?.release.search({ query: "Kind of Blue" });
+zuuid.listen.musicbrainz?.releaseGroup.fetch({ id: "aaa50249-1e6b-3910-b830-7e2fb622a8c4" });
+zuuid.listen.musicbrainz?.recording.search({ query: "So What" });
+zuuid.people.musicbrainz?.artist.search({ query: "Miles Davis" });
 ```
 
 ## Example Scripts
@@ -396,6 +427,9 @@ npm run example:search -- tv "Game of Thrones"
 npm run example:search -- people "Brad Pitt"
 npm run example:search -- book "The Lord of the Rings"
 npm run example:search -- author "J. K. Rowling"
+npm run example:search -- release-group "Kind of Blue"
+npm run example:search -- recording "So What"
+npm run example:search -- artist "Miles Davis"
 ```
 
 Fetch and transform a selected provider ID:
@@ -415,6 +449,9 @@ npm run example:fetch -- imdb:movie tt0137523
 npm run example:fetch -- imdb:tv tt0944947
 GAMESDB_API_KEY=... npm run example:fetch -- gamesdb:game 17444
 GAMESDB_API_KEY=... npm run example:fetch -- gamesdb:platform 6
+npm run example:fetch -- musicbrainz:release f5093c06-23e3-404f-aeaa-40f72885ee3a
+npm run example:fetch -- musicbrainz:release-group aaa50249-1e6b-3910-b830-7e2fb622a8c4
+npm run example:fetch -- musicbrainz:artist 561d854a-6a28-4aa7-8c99-323e6ce46c2a
 ```
 
 Transformer-only providers do not have fetch examples. Wrap a real payload from your own provider client in a `SourceRecord` and call the transformer directly.
@@ -451,6 +488,7 @@ Provider exports:
 - `OpenLibraryProvider`
 - `ImdbProvider`
 - `GamesDbProvider`
+- `MusicBrainzProvider`
 - `transformTmdbMovie(sourceRecord, options?)`
 - `transformTmdbTv(sourceRecord, options?)`
 - `transformTmdbPerson(sourceRecord, options?)`

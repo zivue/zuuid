@@ -10,6 +10,7 @@ import {
   kindForCategory,
   GamesDbProvider,
   ImdbProvider,
+  MusicBrainzProvider,
   OpenLibraryProvider,
   providerNamespace,
   providerZuuid,
@@ -111,7 +112,14 @@ test("ImdbProvider scrapes title HTML into a raw source record", async () => {
   const provider = new ImdbProvider({
     titleBaseUrl: "https://www.imdb.test/title",
     fetch: async (url, init) => {
-      requestedUrl = new URL(url.toString());
+      const parsed = new URL(url.toString());
+      if (parsed.hostname.includes("media-imdb")) {
+        return new Response(JSON.stringify({ d: [{ id: "tt0137523", l: "Fight Club", q: "feature", qid: "movie", rank: 228, s: "Brad Pitt, Edward Norton", y: 1999, i: { imageUrl: "https://m.media-amazon.com/images/M/fightclub.jpg" } }] }), {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      requestedUrl = parsed;
       requestedInit = init;
       return new Response('<html><head><title>Fight Club - IMDb</title><script type="application/ld+json">{"@type":"Movie","name":"Fight Club","aggregateRating":{"ratingValue":"8.8"}}</script><script id="__NEXT_DATA__">{"props":{}}</script></head></html>', {
         status: 200,
@@ -130,6 +138,31 @@ test("ImdbProvider scrapes title HTML into a raw source record", async () => {
   assert.equal(source?.payload.html.includes("application/ld+json"), true);
   assert.equal(source?.payload.jsonLd.name, "Fight Club");
   assert.equal(transformed?.rating, 4.4);
+});
+
+
+test("ImdbProvider falls back to suggestion data when the title page is challenged", async () => {
+  const provider = new ImdbProvider({
+    titleBaseUrl: "https://www.imdb.test/title",
+    suggestionBaseUrl: "https://v3.sg.media-imdb.test/suggestion",
+    fetch: async (url) => {
+      const parsed = new URL(url.toString());
+      if (parsed.hostname.includes("media-imdb")) {
+        return new Response(JSON.stringify({ d: [{ id: "tt0137523", l: "Fight Club", q: "feature", qid: "movie", rank: 228, s: "Brad Pitt, Edward Norton", y: 1999, i: { imageUrl: "https://m.media-amazon.com/images/M/fightclub.jpg" } }] }), { status: 200 });
+      }
+      return new Response('<html><head><title></title><script>window.awsWafCookieDomainList=[]; AwsWafIntegration.getToken()</script></head><body><div id="challenge-container"></div></body></html>', { status: 200 });
+    }
+  });
+
+  const source = await provider.fetchMovieSourceRecord({ id: "tt0137523" });
+  const data = source ? await transformImdbMovie(source, provider.transformOptions()) : undefined;
+
+  assert.equal(source?.payload.challenge, true);
+  assert.equal(data?.primaryTitle, "Fight Club");
+  assert.equal(data?.primaryDate, "1999-01-01");
+  assert.equal(data?.cover, "https://m.media-amazon.com/images/M/fightclub.jpg");
+  assert.equal(data?.details.some((detail) => detail.key === "page_status" && detail.value === "challenge"), true);
+  assert.equal(data?.details.some((detail) => detail.key === "cast_summary" && detail.value === "Brad Pitt, Edward Norton"), true);
 });
 
 test("transformImdbTv maps IMDb TV titles to the tv category", async () => {
@@ -666,6 +699,29 @@ test("TmdbProvider searches unified movie, tv, and people results", async () => 
   assert.deepEqual(people.pagination, { page: 1, totalPages: 1, totalResults: 1 });
 });
 
+test("createZuuidClient exposes musicbrainz listen and people facades", async () => {
+  const client = createZuuidClient({
+    providers: {
+      musicbrainz: {
+        apiBase: "https://musicbrainz.test/ws/2",
+        fetch: async (url) => {
+          const parsed = new URL(url.toString());
+          if (parsed.pathname.includes("/artist/")) return new Response(JSON.stringify({ id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a", name: "Miles Davis" }), { status: 200 });
+          return new Response(JSON.stringify({ count: 1, offset: 0, releases: [{ id: "f5093c06-23e3-404f-aeaa-40f72885ee3a", title: "Kind of Blue", date: "1959-08-17", score: 100 }] }), { status: 200 });
+        }
+      }
+    }
+  });
+
+  const artist = await client.people.musicbrainz?.artist.fetchSourceRecord({ id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a" });
+  const releases = await client.listen.musicbrainz?.release.search({ query: "Kind of Blue" });
+
+  assert.deepEqual(artist?.source, { provider: "musicbrainz", category: "artist", externalId: "561d854a-6a28-4aa7-8c99-323e6ce46c2a" });
+  assert.equal(releases?.results[0]?.title, "Kind of Blue");
+  assert.equal(createZuuidClient().listen.musicbrainz, undefined);
+  assert.equal(createZuuidClient().people.musicbrainz, undefined);
+});
+
 test("createZuuidClient exposes gamesdb play facade", async () => {
   const client = createZuuidClient({
     providers: {
@@ -693,6 +749,7 @@ test("createZuuidClient exposes imdb movie and tv fetch facades", async () => {
     providers: {
       imdb: {
         titleBaseUrl: "https://www.imdb.test/title",
+        suggestionBaseUrl: null,
         fetch: async () => new Response('<script type="application/ld+json">{"@type":"Movie","name":"Fight Club"}</script>', { status: 200 })
       }
     }
