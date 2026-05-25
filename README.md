@@ -4,7 +4,7 @@ Search, fetch, and normalize media metadata from external providers into a share
 
 This package is meant to be used by apps that need provider-backed lookup and transformation, but do not want provider-specific response shapes leaking through the app.
 
-TMDB and Open Library include live search/fetch clients. Additional providers currently expose source-record transformers: you provide the raw provider payload, and this package normalizes it into `ZuuidData`.
+TMDB, Open Library, and GamesDB include live search/fetch clients. IMDb includes a fetch-by-ID title-page scraper for movie and TV titles. Additional providers currently expose source-record transformers: you provide the raw provider payload, and this package normalizes it into `ZuuidData`.
 
 Storage, caching, indexing, review state, object-store keys, and persistence belong in a layer outside this package.
 
@@ -110,7 +110,9 @@ Ratings are normalized to a `0-5` scale when the provider exposes a compatible n
 | Open Library | book | yes | yes | yes |
 | Open Library | author | yes | yes | yes |
 | ComicVine | volume, issue, story_arc, character, person, publisher | no | no | yes |
-| GamesDB | game, platform | no | no | yes |
+| IMDb | movie, tv | no | yes | yes |
+| GamesDB | game | yes | yes | yes |
+| GamesDB | platform | no | yes | yes |
 | Jikan | anime, manga, producer, magazine, character, person | no | no | yes |
 | MusicBrainz | release, release-group, recording, artist, label, work | no | no | yes |
 | OpenFoodFacts | product | no | no | yes |
@@ -120,7 +122,56 @@ Ratings are normalized to a `0-5` scale when the provider exposes a compatible n
 | Ticketmaster | event, attraction, venue | no | no | yes |
 | Wger | exercise, equipment | no | no | yes |
 
-For transformer-only providers, "Search" and "Fetch" are marked `no` because this package does not perform those HTTP requests yet. Use your own provider client or stored payloads, wrap the payload in a `SourceRecord`, and call the category transformer.
+For IMDb, search is marked `no` because the scraper fetches known title IDs such as `tt0137523`; it does not implement IMDb search. GamesDB platform search is marked `no` because only game search and ID fetches are currently implemented. For transformer-only providers, "Search" and "Fetch" are marked `no` because this package does not perform those HTTP requests yet. Use your own provider client or stored payloads, wrap the payload in a `SourceRecord`, and call the category transformer.
+
+
+
+## GamesDB Credentials
+
+`GamesDbProvider` uses TheGamesDB v1 API and requires an API key:
+
+```ts
+import { GamesDbProvider } from "@zivue/zuuid/providers/gamesdb";
+
+const gamesdb = new GamesDbProvider({
+  apiKey: process.env.GAMESDB_API_KEY!
+});
+
+const game = await gamesdb.fetchGame({ id: 17444 });
+const search = await gamesdb.searchGames({ query: "Chrono Trigger" });
+const platform = await gamesdb.fetchPlatform({ id: 6 });
+```
+
+The category-first client exposes GamesDB under `play.gamesdb`:
+
+```ts
+const zuuid = createZuuidClient({
+  providers: { gamesdb: { apiKey: process.env.GAMESDB_API_KEY! } }
+});
+
+const game = await zuuid.play.gamesdb?.game.fetch({ id: 17444 });
+```
+
+GamesDB transforms accept both simple flat payloads and native TheGamesDB API envelopes with `data.games`, `data.platforms`, lookup maps, and `boxart` image metadata.
+
+## IMDb Scraper
+
+IMDb can be used as a credential-free alternative source when you already have an IMDb title ID. It scrapes the title page, preserves the fetched HTML and extracted JSON-LD in the raw `SourceRecord`, and transforms the JSON-LD into normalized `ZuuidData`.
+
+```ts
+import { ImdbProvider } from "@zivue/zuuid/providers/imdb";
+
+const imdb = new ImdbProvider();
+const movie = await imdb.fetchMovie({ id: "tt0137523" });
+const tv = await imdb.fetchTv({ id: "tt0944947" });
+```
+
+The category-first client exposes the same fetch-only provider under `movie.imdb` and `tv.imdb`:
+
+```ts
+const zuuid = createZuuidClient({ providers: { imdb: {} } });
+const movie = await zuuid.movie.imdb?.fetch({ id: "tt0137523" });
+```
 
 ## TMDB Credentials
 
@@ -357,21 +408,16 @@ npm run example:fetch -- book OL82563W
 npm run example:fetch -- author OL23919A
 ```
 
-Fetch fixture-backed transformer examples:
+Fetch live provider examples:
 
 ```sh
-npm run example:fetch -- gamesdb:game 17444
-npm run example:fetch -- gamesdb:platform 6
-npm run example:fetch -- musicbrainz:release-group aaa50249-1e6b-3910-b830-7e2fb622a8c4
-npm run example:fetch -- musicbrainz:recording 0b5d8c0f-4975-4e44-9e67-0a5f1b5939f6
-npm run example:fetch -- comicvine:issue 101
-npm run example:fetch -- comicvine:story_arc 201
-npm run example:fetch -- jikan:producer 14
-npm run example:fetch -- jikan:magazine 1
-npm run example:fetch -- openfoodfacts:product 3017620422003
-npm run example:fetch -- openstreetmap:venue W123456
-npm run example:fetch -- wger:equipment 7
+npm run example:fetch -- imdb:movie tt0137523
+npm run example:fetch -- imdb:tv tt0944947
+GAMESDB_API_KEY=... npm run example:fetch -- gamesdb:game 17444
+GAMESDB_API_KEY=... npm run example:fetch -- gamesdb:platform 6
 ```
+
+Transformer-only providers do not have fetch examples. Wrap a real payload from your own provider client in a `SourceRecord` and call the transformer directly.
 
 `example:fetch` writes both raw and transformed JSON:
 
@@ -403,14 +449,18 @@ Provider exports:
 
 - `TmdbProvider`
 - `OpenLibraryProvider`
+- `ImdbProvider`
+- `GamesDbProvider`
 - `transformTmdbMovie(sourceRecord, options?)`
 - `transformTmdbTv(sourceRecord, options?)`
 - `transformTmdbPerson(sourceRecord, options?)`
+- `transformImdbMovie(sourceRecord, options?)`
+- `transformImdbTv(sourceRecord, options?)`
 - `transformOpenLibraryBook(sourceRecord, options?)`
 - `transformOpenLibraryAuthor(sourceRecord, options?)`
 - `transformComicVine(sourceRecord)`
 - `transformGamesDbGame(sourceRecord, options?)`
-- `transformGamesDbPlatform(sourceRecord)`
+- `transformGamesDbPlatform(sourceRecord, options?)`
 - `transformJikan(sourceRecord)`
 - `transformMusicBrainzRelease(sourceRecord, options?)`
 - `transformMusicBrainzReleaseGroup(sourceRecord, options?)`

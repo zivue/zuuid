@@ -324,7 +324,6 @@ export async function transformTmdbTv(
   addTvCertifications(data, payload);
   addStructuredDetail(data, "production_countries", payload.production_countries);
   addStructuredDetail(data, "spoken_languages", payload.spoken_languages);
-  addStructuredDetail(data, "content_ratings", payload.content_ratings?.results);
   addStructuredDetail(data, "last_episode_to_air", payload.last_episode_to_air);
   addStructuredDetail(data, "next_episode_to_air", payload.next_episode_to_air);
   addStructuredDetail(data, "watch_providers", payload.watch_providers?.results);

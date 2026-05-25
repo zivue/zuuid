@@ -19,9 +19,27 @@ import {
   type TmdbProviderOptions,
   type TmdbSearchInput
 } from "./providers/tmdb/index.js";
+import {
+  GamesDbProvider,
+  transformGamesDbGame,
+  transformGamesDbPlatform,
+  type FetchGamesDbGameInput,
+  type FetchGamesDbPlatformInput,
+  type GamesDbProviderOptions,
+  type GamesDbSearchInput
+} from "./providers/gamesdb/index.js";
+import {
+  ImdbProvider,
+  transformImdbMovie,
+  transformImdbTv,
+  type FetchImdbTitleInput,
+  type ImdbProviderOptions
+} from "./providers/imdb/index.js";
 import type { SourceRecord } from "./source.js";
 
 export type ProviderConfigs = {
+  gamesdb?: GamesDbProviderOptions;
+  imdb?: ImdbProviderOptions;
   openlibrary?: OpenLibraryProviderOptions;
   tmdb?: TmdbProviderOptions;
 };
@@ -38,6 +56,12 @@ export type MovieProviderClient<TFetchInput> = {
   transform(source: SourceRecord): Promise<ZuuidData>;
 };
 
+export type FetchOnlyProviderClient<TFetchInput> = {
+  fetch(input: TFetchInput): Promise<ZuuidData | undefined>;
+  fetchSourceRecord(input: TFetchInput): Promise<SourceRecord | undefined>;
+  transform(source: SourceRecord): Promise<ZuuidData>;
+};
+
 export type ProviderClient<TFetchInput, TSearchInput> = {
   fetch(input: TFetchInput): Promise<ZuuidData | undefined>;
   fetchSourceRecord(input: TFetchInput): Promise<SourceRecord | undefined>;
@@ -48,9 +72,11 @@ export type ProviderClient<TFetchInput, TSearchInput> = {
 
 export type ZuuidClient = {
   movie: {
+    imdb?: FetchOnlyProviderClient<FetchImdbTitleInput>;
     tmdb?: ProviderClient<FetchTmdbMovieInput, TmdbSearchInput>;
   };
   tv: {
+    imdb?: FetchOnlyProviderClient<FetchImdbTitleInput>;
     tmdb?: ProviderClient<FetchTmdbTvInput, TmdbSearchInput>;
   };
   people: {
@@ -60,14 +86,29 @@ export type ZuuidClient = {
   read: {
     openlibrary?: ProviderClient<FetchOpenLibraryBookInput, OpenLibrarySearchInput>;
   };
+  play: {
+    gamesdb?: {
+      game: ProviderClient<FetchGamesDbGameInput, GamesDbSearchInput>;
+      platform: FetchOnlyProviderClient<FetchGamesDbPlatformInput>;
+    };
+  };
 };
 
 export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
+  const gamesdb = config.providers?.gamesdb ? new GamesDbProvider(config.providers.gamesdb) : undefined;
+  const imdb = config.providers?.imdb ? new ImdbProvider(config.providers.imdb) : undefined;
   const openlibrary = config.providers?.openlibrary ? new OpenLibraryProvider(config.providers.openlibrary) : undefined;
   const tmdb = config.providers?.tmdb ? new TmdbProvider(config.providers.tmdb) : undefined;
 
   return Object.freeze({
     movie: Object.freeze({
+      imdb: imdb
+        ? Object.freeze({
+            fetch: (input: FetchImdbTitleInput) => imdb.fetchMovie(input),
+            fetchSourceRecord: (input: FetchImdbTitleInput) => imdb.fetchMovieSourceRecord(input),
+            transform: (source: SourceRecord) => transformImdbMovie(source, imdb.transformOptions())
+          })
+        : undefined,
       tmdb: tmdb
         ? Object.freeze({
             fetch: (input: FetchTmdbMovieInput) => tmdb.fetchMovie(input),
@@ -79,6 +120,13 @@ export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
         : undefined
     }),
     tv: Object.freeze({
+      imdb: imdb
+        ? Object.freeze({
+            fetch: (input: FetchImdbTitleInput) => imdb.fetchTv(input),
+            fetchSourceRecord: (input: FetchImdbTitleInput) => imdb.fetchTvSourceRecord(input),
+            transform: (source: SourceRecord) => transformImdbTv(source, imdb.transformOptions())
+          })
+        : undefined,
       tmdb: tmdb
         ? Object.freeze({
             fetch: (input: FetchTmdbTvInput) => tmdb.fetchTv(input),
@@ -117,6 +165,24 @@ export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
             search: (input: OpenLibrarySearchInput) => openlibrary.searchBooks(input),
             searchSourceRecords: (input: OpenLibrarySearchInput) => openlibrary.searchBookSourceRecords(input),
             transform: (source: SourceRecord) => transformOpenLibraryBook(source, openlibrary.transformOptions())
+          })
+        : undefined
+    }),
+    play: Object.freeze({
+      gamesdb: gamesdb
+        ? Object.freeze({
+            game: Object.freeze({
+              fetch: (input: FetchGamesDbGameInput) => gamesdb.fetchGame(input),
+              fetchSourceRecord: (input: FetchGamesDbGameInput) => gamesdb.fetchGameSourceRecord(input),
+              search: (input: GamesDbSearchInput) => gamesdb.searchGames(input),
+              searchSourceRecords: (input: GamesDbSearchInput) => gamesdb.searchGameSourceRecords(input),
+              transform: (source: SourceRecord) => transformGamesDbGame(source, gamesdb.transformOptions())
+            }),
+            platform: Object.freeze({
+              fetch: (input: FetchGamesDbPlatformInput) => gamesdb.fetchPlatform(input),
+              fetchSourceRecord: (input: FetchGamesDbPlatformInput) => gamesdb.fetchPlatformSourceRecord(input),
+              transform: (source: SourceRecord) => transformGamesDbPlatform(source, gamesdb.transformOptions())
+            })
           })
         : undefined
     })

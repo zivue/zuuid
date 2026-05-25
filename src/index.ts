@@ -4,6 +4,7 @@ export * from "./entity.js";
 export * from "./identity.js";
 export * from "./providers/comicvine/index.js";
 export * from "./providers/gamesdb/index.js";
+export * from "./providers/imdb/index.js";
 export * from "./providers/jikan/index.js";
 export * from "./providers/musicbrainz/index.js";
 export * from "./providers/openlibrary/index.js";

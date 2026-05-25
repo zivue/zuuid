@@ -8,10 +8,14 @@ import {
   createZuuidData,
   externalIdFromSource,
   kindForCategory,
+  GamesDbProvider,
+  ImdbProvider,
   OpenLibraryProvider,
   providerNamespace,
   providerZuuid,
   TmdbProvider,
+  transformImdbMovie,
+  transformImdbTv,
   transformOpenLibraryAuthor,
   transformOpenLibraryBook,
   transformTmdbMovie,
@@ -35,6 +39,7 @@ test("providerZuuid normalizes category but preserves external id text", async (
 
 test("providerNamespace exposes known Zuuid namespaces", () => {
   assert.equal(providerNamespace("tmdb"), "6ba7b810-9dad-11d1-80b4-00c04fd430c8");
+  assert.equal(providerNamespace("imdb"), "0a29a9f5-9d8f-45d7-8d18-03d966bdadfb");
   assert.equal(providerNamespace("unknown"), undefined);
 });
 
@@ -58,6 +63,87 @@ test("categoryFor and kindForCategory match core category grouping", () => {
   assert.equal(kindForCategory("book"), "read");
   assert.equal(kindForCategory("restaurant"), "visit");
   assert.equal(kindForCategory("collection"), "collection");
+});
+
+test("transformImdbMovie maps an IMDb title page source record", async () => {
+  const source = await createSourceRecord({
+    source: { provider: "imdb", category: "movie", externalId: "tt0137523" },
+    payload: {
+      url: "https://www.imdb.com/title/tt0137523/",
+      html: "<html></html>",
+      jsonLd: {
+        "@type": "Movie",
+        name: "Fight Club",
+        image: "https://m.media-amazon.com/images/M/fightclub.jpg",
+        datePublished: "1999-10-15",
+        contentRating: "R",
+        duration: "PT2H19M",
+        description: "An insomniac office worker forms an underground fight club.",
+        genre: ["Drama"],
+        aggregateRating: { ratingValue: "8.8", ratingCount: "2400000", bestRating: "10" },
+        actor: [{ name: "Brad Pitt", url: "https://www.imdb.com/name/nm0000093/" }],
+        director: { name: "David Fincher", url: "https://www.imdb.com/name/nm0000399/" }
+      }
+    },
+    observedAt: "2026-05-25T00:00:00.000Z"
+  });
+
+  const data = await transformImdbMovie(source);
+
+  assert.equal(data.primaryTitle, "Fight Club");
+  assert.equal(data.category, "movie");
+  assert.equal(data.kind, "watch");
+  assert.equal(data.primaryDate, "1999-10-15");
+  assert.equal(data.rating, 4.4);
+  assert.equal(data.cover, "https://m.media-amazon.com/images/M/fightclub.jpg");
+  assert.equal(data.descriptions[0]?.value.includes("insomniac"), true);
+  assert.equal(data.tags.includes("drama"), true);
+  assert.equal(data.details.some((detail) => detail.key === "provider_rating" && detail.value === 8.8), true);
+  assert.equal(data.details.some((detail) => detail.key === "content_rating" && detail.value === "R"), true);
+  assert.equal(data.relations.some((relation) => relation.externalId === "nm0000093" && relation.relationType === "performed_by"), true);
+  assert.equal(data.relations.some((relation) => relation.externalId === "nm0000399" && relation.relationType === "directed_by"), true);
+  assert.deepEqual(data.externalIds, [{ source: "imdb", category: "movie", value: "tt0137523" }]);
+});
+
+test("ImdbProvider scrapes title HTML into a raw source record", async () => {
+  let requestedUrl;
+  let requestedInit;
+  const provider = new ImdbProvider({
+    titleBaseUrl: "https://www.imdb.test/title",
+    fetch: async (url, init) => {
+      requestedUrl = new URL(url.toString());
+      requestedInit = init;
+      return new Response('<html><head><title>Fight Club - IMDb</title><script type="application/ld+json">{"@type":"Movie","name":"Fight Club","aggregateRating":{"ratingValue":"8.8"}}</script><script id="__NEXT_DATA__">{"props":{}}</script></head></html>', {
+        status: 200,
+        headers: { "content-type": "text/html" }
+      });
+    }
+  });
+
+  const source = await provider.fetchMovieSourceRecord({ id: "0137523" });
+  const transformed = source ? await transformImdbMovie(source, provider.transformOptions()) : undefined;
+
+  assert.equal(requestedUrl.pathname, "/title/tt0137523/");
+  assert.equal(requestedInit.headers["User-Agent"].includes("zuuid"), true);
+  assert.deepEqual(source?.source, { provider: "imdb", category: "movie", externalId: "tt0137523" });
+  assert.equal(source?.payload.title, "Fight Club");
+  assert.equal(source?.payload.html.includes("application/ld+json"), true);
+  assert.equal(source?.payload.jsonLd.name, "Fight Club");
+  assert.equal(transformed?.rating, 4.4);
+});
+
+test("transformImdbTv maps IMDb TV titles to the tv category", async () => {
+  const source = await createSourceRecord({
+    source: { provider: "imdb", category: "tv", externalId: "tt0944947" },
+    payload: { jsonLd: { "@type": "TVSeries", name: "Game of Thrones", datePublished: "2011-04-17" } }
+  });
+
+  const data = await transformImdbTv(source);
+
+  assert.equal(data.primaryTitle, "Game of Thrones");
+  assert.equal(data.category, "tv");
+  assert.equal(data.kind, "watch");
+  assert.deepEqual(data.externalIds, [{ source: "imdb", category: "tv", value: "tt0944947" }]);
 });
 
 test("createSourceRecord hashes payloads and attachSourceMetadata updates the record structure", async () => {
@@ -339,7 +425,7 @@ test("transformTmdbTv maps a TMDB tv source record into Zuuid data", async () =>
   assert.equal(data.details.some((detail) => detail.key === "languages" && detail.value?.[0] === "en"), true);
   assert.equal(data.details.some((detail) => detail.key === "production_countries" && detail.value?.[0]?.iso_3166_1 === "US"), true);
   assert.equal(data.details.some((detail) => detail.key === "certifications" && detail.value?.[0]?.certification === "TV-MA"), true);
-  assert.equal(data.details.some((detail) => detail.key === "content_ratings" && detail.value?.[0]?.rating === "TV-MA"), true);
+  assert.equal(data.details.some((detail) => detail.key === "content_ratings"), false);
   assert.equal(data.details.some((detail) => detail.key === "last_episode_to_air" && detail.value?.name === "The Iron Throne"), true);
 });
 
@@ -578,6 +664,50 @@ test("TmdbProvider searches unified movie, tv, and people results", async () => 
   assert.equal(people.results[0]?.attribute, "Acting");
   assert.deepEqual(people.results[0]?.source, { source: "tmdb", category: "person", value: "287" });
   assert.deepEqual(people.pagination, { page: 1, totalPages: 1, totalResults: 1 });
+});
+
+test("createZuuidClient exposes gamesdb play facade", async () => {
+  const client = createZuuidClient({
+    providers: {
+      gamesdb: {
+        apiKey: "test-key",
+        apiBase: "https://api.thegamesdb.test/v1",
+        fetch: async () => new Response(JSON.stringify({ data: { games: [{ id: 17444, game_title: "Chrono Trigger" }], platforms: [{ id: 6, name: "SNES" }] } }), { status: 200 })
+      }
+    }
+  });
+
+  const game = await client.play.gamesdb?.game.fetchSourceRecord({ id: 17444 });
+  const platform = await client.play.gamesdb?.platform.transform(await createSourceRecord({
+    source: { provider: "gamesdb", category: "platform", externalId: "6" },
+    payload: { id: 6, name: "Super Nintendo Entertainment System" }
+  }));
+
+  assert.deepEqual(game?.source, { provider: "gamesdb", category: "game", externalId: "17444" });
+  assert.equal(platform?.category, "platform");
+  assert.equal(createZuuidClient().play.gamesdb, undefined);
+});
+
+test("createZuuidClient exposes imdb movie and tv fetch facades", async () => {
+  const client = createZuuidClient({
+    providers: {
+      imdb: {
+        titleBaseUrl: "https://www.imdb.test/title",
+        fetch: async () => new Response('<script type="application/ld+json">{"@type":"Movie","name":"Fight Club"}</script>', { status: 200 })
+      }
+    }
+  });
+
+  const movie = await client.movie.imdb?.fetchSourceRecord({ id: "tt0137523" });
+  const tv = await client.tv.imdb?.transform(await createSourceRecord({
+    source: { provider: "imdb", category: "tv", externalId: "tt0944947" },
+    payload: { jsonLd: { "@type": "TVSeries", name: "Game of Thrones" } }
+  }));
+
+  assert.deepEqual(movie?.source, { provider: "imdb", category: "movie", externalId: "tt0137523" });
+  assert.equal(tv?.category, "tv");
+  assert.equal(createZuuidClient().movie.imdb, undefined);
+  assert.equal(createZuuidClient().tv.imdb, undefined);
 });
 
 test("createZuuidClient exposes a category-first provider facade", async () => {

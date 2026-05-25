@@ -243,6 +243,18 @@
     "./providers/tmdb/person": {
       "types": "./dist/providers/tmdb/person.d.ts",
       "import": "./dist/providers/tmdb/person.js"
+    },
+    "./providers/imdb": {
+      "types": "./dist/providers/imdb/index.d.ts",
+      "import": "./dist/providers/imdb/index.js"
+    },
+    "./providers/imdb/movie": {
+      "types": "./dist/providers/imdb/movie.d.ts",
+      "import": "./dist/providers/imdb/movie.js"
+    },
+    "./providers/gamesdb/client": {
+      "types": "./dist/providers/gamesdb/client.d.ts",
+      "import": "./dist/providers/gamesdb/client.js"
     }
   },
   "types": "./dist/index.d.ts",

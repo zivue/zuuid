@@ -4,6 +4,7 @@ export type ProviderName =
   | "musicbrainz"
   | "gamesdb"
   | "openlibrary"
+  | "imdb"
   | "tmdb"
   | "jikan"
   | "comicvine"
@@ -32,6 +33,7 @@ export const PROVIDER_NAMESPACES: ProviderNamespace[] = [
   { provider: "musicbrainz", namespace: "9e4a2c71-f528-4d83-b710-a40c3e917f2a" },
   { provider: "gamesdb", namespace: "7ca1b820-aebc-41d2-90c5-00d05fe440d9" },
   { provider: "openlibrary", namespace: "3ea1c742-b50f-4a93-912d-7c8e1fa364d1" },
+  { provider: "imdb", namespace: "0a29a9f5-9d8f-45d7-8d18-03d966bdadfb" },
   { provider: "tmdb", namespace: "6ba7b810-9dad-11d1-80b4-00c04fd430c8" },
   { provider: "jikan", namespace: "7ca8b920-aebe-22e2-91c5-01d15ee541d9" },
   { provider: "comicvine", namespace: "8db9ca31-bfcf-33f3-a2d6-12e26ff652ea" },

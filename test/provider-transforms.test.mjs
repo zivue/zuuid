@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   createSourceRecord,
   transformComicVine,
+  GamesDbProvider,
   transformGamesDbGame,
   transformGamesDbPlatform,
   transformJikan,
@@ -44,6 +45,66 @@ test("transformGamesDbGame maps a game payload", async () => {
   assert.equal(data.primaryDate, "1995-08-22");
   assert.equal(data.cover, "https://cdn.example.test/chrono-trigger.jpg");
   assert.equal(data.tags.includes("role-playing"), true);
+});
+
+
+test("transformGamesDbGame maps TheGamesDB API envelopes", async () => {
+  const source = await createSourceRecord({
+    source: { provider: "gamesdb", category: "game", externalId: "17444" },
+    payload: {
+      data: {
+        games: [{ id: 17444, game_title: "Chrono Trigger", release_date: "1995-08-22", overview: "A time travel role-playing game.", rating: "9.6", platform: 6, genres: [1], developers: [10], publishers: [20], players: "1", coop: "No", alternates: ["Chrono Trigger DS"] }],
+        genres: { "1": { id: 1, name: "Role-Playing" } },
+        platforms: { "6": { id: 6, name: "Super Nintendo" } },
+        developers: { "10": { id: 10, name: "Square" } },
+        publishers: { "20": { id: 20, name: "Square" } },
+        boxart: {
+          base_url: { original: "https://cdn.thegamesdb.net/images/original" },
+          data: { "17444": [{ type: "boxart", side: "front", filename: "boxart/front/17444-1.jpg" }, { type: "boxart", side: "back", filename: "boxart/back/17444-1.jpg" }] }
+        }
+      }
+    },
+    observedAt
+  });
+
+  const data = await transformGamesDbGame(source);
+
+  assert.equal(data.primaryTitle, "Chrono Trigger");
+  assert.equal(data.rating, 4.8);
+  assert.equal(data.cover, "https://cdn.thegamesdb.net/images/original/boxart/front/17444-1.jpg");
+  assert.equal(data.media.some((media) => media.mediaCategory === "boxart_back"), true);
+  assert.equal(data.tags.includes("role-playing"), true);
+  assert.equal(data.details.some((detail) => detail.key === "developers" && detail.value === "Square"), true);
+  assert.equal(data.details.some((detail) => detail.key === "platform" && detail.value === "Super Nintendo"), true);
+  assert.equal(data.aliases.some((alias) => alias.value === "Chrono Trigger DS"), true);
+  assert.equal(data.relations.some((relation) => relation.category === "platform" && relation.externalId === "6"), true);
+});
+
+test("GamesDbProvider fetches and searches games", async () => {
+  const requested = [];
+  const provider = new GamesDbProvider({
+    apiKey: "test-key",
+    apiBase: "https://api.thegamesdb.test/v1",
+    fetch: async (url) => {
+      const parsed = new URL(url.toString());
+      requested.push(parsed);
+      const game = { id: 17444, game_title: "Chrono Trigger", release_date: "1995-08-22", rating: 9.6 };
+      return new Response(JSON.stringify({ data: { games: [game], boxart: { base_url: { original: "https://cdn.test" }, data: { "17444": [{ filename: "front.jpg", side: "front", type: "boxart" }] } } }, pages: { current: 1, total: 1 } }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+  });
+
+  const source = await provider.fetchGameSourceRecord({ id: 17444 });
+  const search = await provider.searchGames({ query: "chrono" });
+
+  assert.equal(requested[0].pathname, "/v1/Games/ByGameID");
+  assert.equal(requested[0].searchParams.get("apikey"), "test-key");
+  assert.equal(requested[1].pathname, "/v1/Games/ByGameName");
+  assert.deepEqual(source?.source, { provider: "gamesdb", category: "game", externalId: "17444" });
+  assert.equal(search.results[0]?.title, "Chrono Trigger");
+  assert.equal(search.results[0]?.cover, "https://cdn.test/front.jpg");
 });
 
 test("transformMusicBrainzRelease maps release metadata", async () => {

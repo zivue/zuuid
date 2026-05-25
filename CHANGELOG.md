@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2 - 2026-05-25
+
+- Added IMDb fetch-by-ID scraper support for movie and TV title pages.
+- Added GamesDB live game search/fetch, platform fetch, `play.gamesdb` client support, and native API envelope/image handling.
+- Removed hardcoded fixture payloads from the fetch example; examples now cover live fetch-capable providers only.
+- Removed duplicate transformed TMDB TV `content_ratings` details while keeping normalized `certifications`.
+- Added `AGENTS.md` guidance for AI coding agents working in this repository.
+
 ## 0.2.1 - 2026-05-24
 
 - Normalized provider ratings to a shared `0-5` scale while preserving native provider scores in `provider_rating` details.
