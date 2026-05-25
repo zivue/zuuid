@@ -1,11 +1,20 @@
-import { createZuuidClient, MusicBrainzProvider, OpenLibraryProvider, TmdbProvider } from "../dist/index.js";
+import { ComicVineProvider, createZuuidClient, MusicBrainzProvider, OpenLibraryProvider, OpenStreetMapProvider, TmdbProvider } from "../dist/index.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 loadDotEnv();
 
-const category = normalizeCategory(process.argv[2] ?? "movie");
+const target = normalizeTarget(process.argv[2] ?? "movie");
+const category = target.category;
 const query = process.argv.slice(3).join(" ").trim() || defaultQuery(category);
 const credentials = tmdbCredentialsFromEnv();
+const comicvineApiKey = cleanEnvValue(process.env.COMICVINE_API_KEY);
+
+if (requiresComicVineCredentials(category) && !comicvineApiKey) {
+  console.error("Set COMICVINE_API_KEY before running ComicVine examples.");
+  console.error("Usage: COMICVINE_API_KEY=... npm run example:search -- comicvine:volume Saga");
+  console.error("Usage: COMICVINE_API_KEY=... npm run example:search -- comicvine:issue Saga");
+  process.exit(1);
+}
 
 if (requiresTmdbCredentials(category) && !credentials) {
   console.error("Set TMDB_BEARER_TOKEN, TMDB_READ_ACCESS_TOKEN, or TMDB_API_KEY before running this example.");
@@ -19,14 +28,18 @@ if (requiresTmdbCredentials(category) && !credentials) {
 
 const zuuid = createZuuidClient({
   providers: {
+    ...(comicvineApiKey ? { comicvine: { apiKey: comicvineApiKey } } : {}),
     ...(credentials ? { tmdb: credentials.config } : {}),
     musicbrainz: {},
-    openlibrary: {}
+    openlibrary: {},
+    openstreetmap: {}
   }
 });
+const comicvine = comicvineApiKey ? new ComicVineProvider({ apiKey: comicvineApiKey }) : undefined;
 const tmdb = credentials ? new TmdbProvider(credentials.config) : undefined;
 const musicbrainz = new MusicBrainzProvider();
 const openlibrary = new OpenLibraryProvider();
+const openstreetmap = new OpenStreetMapProvider();
 
 if (requiresTmdbCredentials(category) && credentials) {
   console.error(`Using TMDB ${credentials.mode} from environment.`);
@@ -37,7 +50,7 @@ if (requiresTmdbCredentials(category) && credentials?.apiKeyLooksLikeBearerToken
 
 try {
   const search = await searchUnified(zuuid, category, query);
-  const raw = await searchRaw(tmdb, musicbrainz, category, query);
+  const raw = await searchRaw(comicvine, tmdb, musicbrainz, openstreetmap, category, query);
 
   writeDebugJson(category, query, search, raw);
   console.log(JSON.stringify(search, null, 2));
@@ -67,6 +80,26 @@ async function searchUnified(client, category, query) {
       return client.people.openlibrary?.search({ query }) ?? emptySearchResponse();
     case "book":
       return client.read.openlibrary?.search({ query }) ?? emptySearchResponse();
+    case "volume":
+      return client.read.comicvine?.volume.search({ query }) ?? emptySearchResponse();
+    case "issue":
+      return client.read.comicvine?.issue.search({ query }) ?? emptySearchResponse();
+    case "story_arc":
+      return client.read.comicvine?.storyArc.search({ query }) ?? emptySearchResponse();
+    case "character":
+      return client.people.comicvine?.character.search({ query }) ?? emptySearchResponse();
+    case "person":
+      return client.people.comicvine?.person.search({ query }) ?? emptySearchResponse();
+    case "publisher":
+      return client.people.comicvine?.publisher.search({ query }) ?? emptySearchResponse();
+    case "city":
+      return client.visit.openstreetmap?.city.search({ query }) ?? emptySearchResponse();
+    case "country":
+      return client.visit.openstreetmap?.country.search({ query }) ?? emptySearchResponse();
+    case "place":
+      return client.visit.openstreetmap?.place.search({ query }) ?? emptySearchResponse();
+    case "venue":
+      return client.visit.openstreetmap?.venue.search({ query }) ?? emptySearchResponse();
     case "release":
       return client.listen.musicbrainz?.release.search({ query }) ?? emptySearchResponse();
     case "release-group":
@@ -84,7 +117,7 @@ async function searchUnified(client, category, query) {
   }
 }
 
-async function searchRaw(tmdb, musicbrainz, category, query) {
+async function searchRaw(comicvine, tmdb, musicbrainz, openstreetmap, category, query) {
   switch (category) {
     case "movie":
       return tmdb?.searchMovieSourceRecords({ query }) ?? emptySearchResponse();
@@ -96,6 +129,26 @@ async function searchRaw(tmdb, musicbrainz, category, query) {
       return openlibrary.searchAuthorSourceRecords({ query });
     case "book":
       return openlibrary.searchBookSourceRecords({ query });
+    case "volume":
+      return comicvine?.searchVolumeSourceRecords({ query }) ?? emptySearchResponse();
+    case "issue":
+      return comicvine?.searchIssueSourceRecords({ query }) ?? emptySearchResponse();
+    case "story_arc":
+      return comicvine?.searchStoryArcSourceRecords({ query }) ?? emptySearchResponse();
+    case "character":
+      return comicvine?.searchCharacterSourceRecords({ query }) ?? emptySearchResponse();
+    case "person":
+      return comicvine?.searchPersonSourceRecords({ query }) ?? emptySearchResponse();
+    case "publisher":
+      return comicvine?.searchPublisherSourceRecords({ query }) ?? emptySearchResponse();
+    case "city":
+      return openstreetmap.searchCitySourceRecords({ query });
+    case "country":
+      return openstreetmap.searchCountrySourceRecords({ query });
+    case "place":
+      return openstreetmap.searchPlaceSourceRecords({ query });
+    case "venue":
+      return openstreetmap.searchVenueSourceRecords({ query });
     case "release":
       return musicbrainz.searchReleaseSourceRecords({ query });
     case "release-group":
@@ -114,7 +167,7 @@ async function searchRaw(tmdb, musicbrainz, category, query) {
 }
 
 function writeDebugJson(category, query, results, raw) {
-  const provider = isOpenLibraryCategory(category) ? "openlibrary" : isMusicBrainzCategory(category) ? "musicbrainz" : "tmdb";
+  const provider = isOpenLibraryCategory(category) ? "openlibrary" : isMusicBrainzCategory(category) ? "musicbrainz" : isComicVineCategory(category) ? "comicvine" : isOpenStreetMapCategory(category) ? "openstreetmap" : "tmdb";
   const directory = `data/${provider}/search/${category}`;
   const slug = querySlug(query);
   mkdirSync(directory, { recursive: true });
@@ -137,18 +190,21 @@ function emptySearchResponse() {
   };
 }
 
-function normalizeCategory(value) {
+function normalizeTarget(value) {
   const normalized = value.trim().toLowerCase();
   if (normalized === "person") {
-    return "people";
+    return { category: "people" };
   }
   if (normalized === "read") {
-    return "book";
+    return { category: "book" };
   }
   if (normalized === "release_group") {
-    return "release-group";
+    return { category: "release-group" };
   }
-  return normalized;
+  const [provider, rawCategory] = normalized.includes(":") ? normalized.split(":", 2) : [undefined, normalized];
+  let category = rawCategory;
+  if (category === "story-arc") category = "story_arc";
+  return provider ? { provider, category } : { category };
 }
 
 function defaultQuery(category) {
@@ -174,9 +230,38 @@ function defaultQuery(category) {
       return "Columbia";
     case "work":
       return "So What";
+    case "volume":
+    case "issue":
+      return "Saga";
+    case "story_arc":
+      return "Battle of the Atom";
+    case "character":
+      return "Spider-Man";
+    case "publisher":
+      return "Image";
+    case "city":
+      return "Oslo";
+    case "country":
+      return "Norway";
+    case "place":
+      return "Eiffel Tower";
+    case "venue":
+      return "Blue Note Oslo";
     default:
       return "Fight Club";
   }
+}
+
+function isOpenStreetMapCategory(category) {
+  return category === "city" || category === "country" || category === "place" || category === "venue";
+}
+
+function isComicVineCategory(category) {
+  return category === "volume" || category === "issue" || category === "story_arc" || category === "character" || category === "person" || category === "publisher";
+}
+
+function requiresComicVineCredentials(category) {
+  return isComicVineCategory(category);
 }
 
 function isMusicBrainzCategory(category) {

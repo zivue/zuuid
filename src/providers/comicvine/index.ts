@@ -1,3 +1,5 @@
+export * from "./types.js";
+export * from "./client.js";
 export * from "./character.js";
 export * from "./constants.js";
 export * from "./issue.js";

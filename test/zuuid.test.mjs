@@ -8,17 +8,21 @@ import {
   createZuuidData,
   externalIdFromSource,
   kindForCategory,
+  ComicVineProvider,
   GamesDbProvider,
   ImdbProvider,
   MusicBrainzProvider,
   OpenLibraryProvider,
+  OpenStreetMapProvider,
   providerNamespace,
   providerZuuid,
   TmdbProvider,
+  transformComicVine,
   transformImdbMovie,
   transformImdbTv,
   transformOpenLibraryAuthor,
   transformOpenLibraryBook,
+  transformOpenStreetMapPlace,
   transformTmdbMovie,
   transformTmdbPerson,
   transformTmdbTv
@@ -697,6 +701,125 @@ test("TmdbProvider searches unified movie, tv, and people results", async () => 
   assert.equal(people.results[0]?.attribute, "Acting");
   assert.deepEqual(people.results[0]?.source, { source: "tmdb", category: "person", value: "287" });
   assert.deepEqual(people.pagination, { page: 1, totalPages: 1, totalResults: 1 });
+});
+
+
+
+test("OpenStreetMapProvider fetches and searches Nominatim places", async () => {
+  const requestedUrls = [];
+  const provider = new OpenStreetMapProvider({
+    apiBase: "https://nominatim.test",
+    fetch: async (url) => {
+      const parsed = new URL(url.toString());
+      requestedUrls.push(parsed);
+      if (parsed.pathname === "/lookup") {
+        return new Response(JSON.stringify([{ place_id: 1, osm_type: "relation", osm_id: 406091, name: "Oslo", display_name: "Oslo, Norway", lat: "59.9139", lon: "10.7522", importance: 0.78, address: { country: "Norway", country_code: "no" } }]), { status: 200 });
+      }
+      return new Response(JSON.stringify([{ place_id: 2, osm_type: "way", osm_id: 123456, name: "Blue Note", display_name: "Blue Note, Oslo", class: "amenity", type: "music_venue", importance: 0.42, icon: "https://nominatim.test/icon.png" }]), { status: 200 });
+    }
+  });
+
+  const city = await provider.fetchCitySourceRecord({ id: "R406091" });
+  const venues = await provider.searchVenues({ query: "Blue Note Oslo", limit: 5 });
+  const transformed = city ? await transformOpenStreetMapPlace(city) : undefined;
+
+  assert.deepEqual(city?.source, { provider: "openstreetmap", category: "city", externalId: "R406091" });
+  assert.equal(transformed?.primaryTitle, "Oslo");
+  assert.equal(transformed?.details.some((detail) => detail.key === "country" && detail.value === "Norway"), true);
+  assert.equal(venues.results[0]?.title, "Blue Note");
+  assert.equal(venues.results[0]?.source.value, "W123456");
+  assert.deepEqual(venues.pagination, { page: 1, totalPages: 1, totalResults: 1 });
+  assert.equal(requestedUrls[0].pathname, "/lookup");
+  assert.equal(requestedUrls[0].searchParams.get("osm_ids"), "R406091");
+  assert.equal(requestedUrls[1].pathname, "/search");
+  assert.equal(requestedUrls[1].searchParams.get("format"), "jsonv2");
+  assert.equal(requestedUrls[1].searchParams.get("limit"), "5");
+});
+
+test("ComicVineProvider fetches and searches comic resources", async () => {
+  const requestedUrls = [];
+  const provider = new ComicVineProvider({
+    apiKey: "cv-key",
+    apiBase: "https://comicvine.test/api",
+    fetch: async (url) => {
+      const parsed = new URL(url.toString());
+      requestedUrls.push(parsed);
+      if (parsed.pathname === "/api/issue/4000-101/") {
+        return new Response(JSON.stringify({ status_code: 1, results: { id: 101, name: "Saga #1", issue_number: "1", cover_date: "2012-03-14", volume: { id: 1, name: "Saga" } } }), { status: 200 });
+      }
+      return new Response(JSON.stringify({
+        status_code: 1,
+        limit: 10,
+        offset: 10,
+        number_of_page_results: 1,
+        number_of_total_results: 25,
+        results: [{ id: 1, name: "Saga", start_year: "2012", image: { super_url: "https://img.test/saga.jpg" }, publisher: { id: 10, name: "Image" } }]
+      }), { status: 200 });
+    }
+  });
+
+  const issue = await provider.fetchIssueSourceRecord({ id: "4000-101" });
+  const volumes = await provider.searchVolumes({ query: "Saga", limit: 10, offset: 10 });
+  const transformed = issue ? await transformComicVine(issue) : undefined;
+
+  assert.deepEqual(issue?.source, { provider: "comicvine", category: "issue", externalId: "101" });
+  assert.equal(transformed?.primaryTitle, "Saga #1");
+  assert.equal(transformed?.primaryDate, "2012-03-14");
+  assert.equal(volumes.results[0]?.title, "Saga");
+  assert.equal(volumes.results[0]?.category, "comic");
+  assert.deepEqual(volumes.pagination, { page: 2, totalPages: 3, totalResults: 25 });
+  assert.equal(requestedUrls[0].searchParams.get("api_key"), "cv-key");
+  assert.equal(requestedUrls[0].searchParams.get("format"), "json");
+  assert.equal(requestedUrls[1].pathname, "/api/search/");
+  assert.equal(requestedUrls[1].searchParams.get("resources"), "volume");
+});
+
+
+
+test("createZuuidClient exposes openstreetmap visit facades", async () => {
+  const client = createZuuidClient({
+    providers: {
+      openstreetmap: {
+        apiBase: "https://nominatim.test",
+        fetch: async (url) => {
+          const parsed = new URL(url.toString());
+          if (parsed.pathname === "/lookup") return new Response(JSON.stringify([{ place_id: 1, osm_type: "relation", osm_id: 406091, name: "Oslo" }]), { status: 200 });
+          return new Response(JSON.stringify([{ place_id: 2, osm_type: "node", osm_id: 987654, name: "Cafe" }]), { status: 200 });
+        }
+      }
+    }
+  });
+
+  const city = await client.visit.openstreetmap?.city.fetchSourceRecord({ id: "R406091" });
+  const places = await client.visit.openstreetmap?.place.search({ query: "Cafe" });
+
+  assert.deepEqual(city?.source, { provider: "openstreetmap", category: "city", externalId: "R406091" });
+  assert.equal(places?.results[0]?.source.value, "N987654");
+  assert.equal(createZuuidClient().visit.openstreetmap, undefined);
+});
+
+test("createZuuidClient exposes comicvine read and people facades", async () => {
+  const client = createZuuidClient({
+    providers: {
+      comicvine: {
+        apiKey: "cv-key",
+        apiBase: "https://comicvine.test/api",
+        fetch: async (url) => {
+          const parsed = new URL(url.toString());
+          if (parsed.pathname.includes("/publisher/")) return new Response(JSON.stringify({ status_code: 1, results: { id: 10, name: "Image" } }), { status: 200 });
+          return new Response(JSON.stringify({ status_code: 1, results: [{ id: 101, name: "Saga #1", issue_number: "1" }] }), { status: 200 });
+        }
+      }
+    }
+  });
+
+  const publisher = await client.people.comicvine?.publisher.fetchSourceRecord({ id: 10 });
+  const issues = await client.read.comicvine?.issue.search({ query: "Saga" });
+
+  assert.deepEqual(publisher?.source, { provider: "comicvine", category: "publisher", externalId: "10" });
+  assert.equal(issues?.results[0]?.title, "Saga #1");
+  assert.equal(createZuuidClient().read.comicvine, undefined);
+  assert.equal(createZuuidClient().people.comicvine, undefined);
 });
 
 test("createZuuidClient exposes musicbrainz listen and people facades", async () => {

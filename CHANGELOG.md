@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.5 - 2026-05-25
+
+- Added live OpenStreetMap/Nominatim lookup and search support for cities, countries, places, and venues.
+- Added `OpenStreetMapProvider`, `visit.openstreetmap` client facades, city/country subpath exports, examples, and README documentation.
+
+## 0.2.4 - 2026-05-25
+
+- Added live ComicVine API support for volumes, issues, story arcs, characters, people, and publishers.
+- Added `ComicVineProvider`, ComicVine fetch/search helpers, category-first client facades, examples, and `providers/comicvine/client` export.
+
 ## 0.2.3 - 2026-05-25
 
 - Added live MusicBrainz lookup/search support for releases, release groups, recordings, artists, labels, and works.

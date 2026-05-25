@@ -1,9 +1,12 @@
 import {
+  ComicVineProvider,
   GamesDbProvider,
   ImdbProvider,
   MusicBrainzProvider,
   OpenLibraryProvider,
+  OpenStreetMapProvider,
   TmdbProvider,
+  transformComicVine,
   transformGamesDbGame,
   transformGamesDbPlatform,
   transformImdbMovie,
@@ -16,6 +19,7 @@ import {
   transformMusicBrainzWork,
   transformOpenLibraryAuthor,
   transformOpenLibraryBook,
+  transformOpenStreetMapPlace,
   transformTmdbMovie,
   transformTmdbPerson,
   transformTmdbTv
@@ -27,12 +31,20 @@ loadDotEnv();
 const target = normalizeTarget(process.argv[2] ?? "movie");
 const category = target.category;
 const id = process.argv[3] ?? defaultId(target);
+const configuredComicVineApiKey = cleanEnvValue(process.env.COMICVINE_API_KEY);
 const configuredGamesDbApiKey = cleanEnvValue(process.env.GAMESDB_API_KEY);
 const configuredBearerToken = cleanEnvValue(process.env.TMDB_BEARER_TOKEN ?? process.env.TMDB_READ_ACCESS_TOKEN);
 const configuredApiKey = cleanEnvValue(process.env.TMDB_API_KEY);
 const apiKeyLooksLikeBearerToken = configuredApiKey?.startsWith("eyJ") ?? false;
 const bearerToken = configuredBearerToken ?? (apiKeyLooksLikeBearerToken ? configuredApiKey : undefined);
 const apiKey = apiKeyLooksLikeBearerToken ? undefined : configuredApiKey;
+
+if (requiresComicVineCredentials(target) && !configuredComicVineApiKey) {
+  console.error("Set COMICVINE_API_KEY before running ComicVine examples.");
+  console.error("Usage: COMICVINE_API_KEY=... npm run example:fetch -- comicvine:volume 1");
+  console.error("Usage: COMICVINE_API_KEY=... npm run example:fetch -- comicvine:issue 101");
+  process.exit(1);
+}
 
 if (requiresGamesDbCredentials(target) && !configuredGamesDbApiKey) {
   console.error("Set GAMESDB_API_KEY before running GamesDB examples.");
@@ -51,11 +63,13 @@ if (requiresTmdbCredentials(target) && !bearerToken && !apiKey) {
   process.exit(1);
 }
 
+const comicvine = configuredComicVineApiKey ? new ComicVineProvider({ apiKey: configuredComicVineApiKey }) : undefined;
 const gamesdb = configuredGamesDbApiKey ? new GamesDbProvider({ apiKey: configuredGamesDbApiKey }) : undefined;
 const imdb = new ImdbProvider();
 const musicbrainz = new MusicBrainzProvider();
 const tmdb = bearerToken || apiKey ? new TmdbProvider(bearerToken ? { bearerToken } : { apiKey }) : undefined;
 const openlibrary = new OpenLibraryProvider();
+const openstreetmap = new OpenStreetMapProvider();
 if (requiresTmdbCredentials(target) && tmdb) {
   console.error(`Using TMDB ${bearerToken ? "bearer token" : "API key"} from environment.`);
 }
@@ -66,7 +80,10 @@ if (requiresTmdbCredentials(target) && tmdb && apiKeyLooksLikeBearerToken) {
 let transformed;
 let source;
 try {
-  if (target.provider === "gamesdb" && gamesdb && category === "game") {
+  if (target.provider === "comicvine") {
+    source = await fetchComicVineSourceRecord(comicvine, category, id);
+    transformed = source ? await transformComicVine(source) : undefined;
+  } else if (target.provider === "gamesdb" && gamesdb && category === "game") {
     source = await gamesdb?.fetchGameSourceRecord({ id });
     transformed = source ? await transformGamesDbGame(source, gamesdb?.transformOptions()) : undefined;
   } else if (target.provider === "gamesdb" && gamesdb && category === "platform") {
@@ -105,6 +122,9 @@ try {
   } else if (category === "people" || category === "person") {
     source = await tmdb?.fetchPersonSourceRecord({ id });
     transformed = source ? await transformTmdbPerson(source, tmdb?.transformOptions()) : undefined;
+  } else if (target.provider === "openstreetmap") {
+    source = await fetchOpenStreetMapSourceRecord(openstreetmap, category, id);
+    transformed = source ? await transformOpenStreetMapPlace(source) : undefined;
   } else if (category === "book") {
     source = await openlibrary.fetchBookSourceRecord({ id });
     transformed = source ? await transformOpenLibraryBook(source, openlibrary.transformOptions()) : undefined;
@@ -154,6 +174,12 @@ function liveExamples() {
     { target: "author", id: "OL23919A" },
     { target: "imdb:movie", id: "tt0137523" },
     { target: "imdb:tv", id: "tt0944947" },
+    { target: "comicvine:volume", id: "1" },
+    { target: "comicvine:issue", id: "101" },
+    { target: "comicvine:story_arc", id: "201" },
+    { target: "comicvine:character", id: "4005" },
+    { target: "comicvine:person", id: "4040" },
+    { target: "comicvine:publisher", id: "10" },
     { target: "gamesdb:game", id: "17444" },
     { target: "gamesdb:platform", id: "6" },
     { target: "musicbrainz:release", id: "f5093c06-23e3-404f-aeaa-40f72885ee3a" },
@@ -161,7 +187,11 @@ function liveExamples() {
     { target: "musicbrainz:recording", id: "0b5d8c0f-4975-4e44-9e67-0a5f1b5939f6" },
     { target: "musicbrainz:artist", id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a" },
     { target: "musicbrainz:label", id: "a24c1f3d-2e21-487b-b15e-3b419b6483bc" },
-    { target: "musicbrainz:work", id: "0e3d8d4d-7b6b-3f9b-8a45-9f477f86f30f" }
+    { target: "musicbrainz:work", id: "0e3d8d4d-7b6b-3f9b-8a45-9f477f86f30f" },
+    { target: "openstreetmap:city", id: "R406091" },
+    { target: "openstreetmap:country", id: "R2978650" },
+    { target: "openstreetmap:place", id: "N987654" },
+    { target: "openstreetmap:venue", id: "W123456" }
   ];
 }
 
@@ -273,6 +303,18 @@ function defaultId(target) {
       return "tt0137523";
     case "imdb:tv":
       return "tt0944947";
+    case "comicvine:volume":
+      return "1";
+    case "comicvine:issue":
+      return "101";
+    case "comicvine:story_arc":
+      return "201";
+    case "comicvine:character":
+      return "4005";
+    case "comicvine:person":
+      return "4040";
+    case "comicvine:publisher":
+      return "10";
     case "gamesdb:game":
       return "17444";
     case "gamesdb:platform":
@@ -289,9 +331,56 @@ function defaultId(target) {
       return "a24c1f3d-2e21-487b-b15e-3b419b6483bc";
     case "musicbrainz:work":
       return "0e3d8d4d-7b6b-3f9b-8a45-9f477f86f30f";
+    case "openstreetmap:city":
+      return "R406091";
+    case "openstreetmap:country":
+      return "R2978650";
+    case "openstreetmap:place":
+      return "N987654";
+    case "openstreetmap:venue":
+      return "W123456";
     default:
       return "550";
   }
+}
+
+async function fetchComicVineSourceRecord(provider, category, id) {
+  switch (category) {
+    case "volume":
+      return provider?.fetchVolumeSourceRecord({ id });
+    case "issue":
+      return provider?.fetchIssueSourceRecord({ id });
+    case "story_arc":
+    case "story-arc":
+      return provider?.fetchStoryArcSourceRecord({ id });
+    case "character":
+      return provider?.fetchCharacterSourceRecord({ id });
+    case "person":
+      return provider?.fetchPersonSourceRecord({ id });
+    case "publisher":
+      return provider?.fetchPublisherSourceRecord({ id });
+    default:
+      throw new Error(`Unsupported live fetch target: comicvine:${category}`);
+  }
+}
+
+async function fetchOpenStreetMapSourceRecord(provider, category, id) {
+  switch (category) {
+    case "city":
+      return provider.fetchCitySourceRecord({ id });
+    case "country":
+      return provider.fetchCountrySourceRecord({ id });
+    case "place":
+      return provider.fetchPlaceSourceRecord({ id });
+    case "venue":
+      return provider.fetchVenueSourceRecord({ id });
+    default:
+      throw new Error(`Unsupported live fetch target: openstreetmap:${category}`);
+  }
+}
+
+function requiresComicVineCredentials(target) {
+  return target.provider === "comicvine";
 }
 
 function requiresGamesDbCredentials(target) {

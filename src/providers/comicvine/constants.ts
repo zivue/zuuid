@@ -5,3 +5,5 @@ export const COMICVINE_STORY_ARC_CATEGORY = "story_arc";
 export const COMICVINE_CHARACTER_CATEGORY = "character";
 export const COMICVINE_PERSON_CATEGORY = "person";
 export const COMICVINE_PUBLISHER_CATEGORY = "publisher";
+export const COMICVINE_API_BASE = "https://comicvine.gamespot.com/api";
+export const COMICVINE_DEFAULT_USER_AGENT = "@zivue/zuuid ComicVine client (+https://github.com/zivue/zuuid)";

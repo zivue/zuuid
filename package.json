@@ -1,6 +1,6 @@
 {
   "name": "@zivue/zuuid",
-  "version": "0.2.3",
+  "version": "0.2.5",
   "description": "TypeScript helpers for fetching, searching, and transforming Zuuid datasets.",
   "type": "module",
   "license": "MIT",
@@ -55,6 +55,10 @@
     "./providers/comicvine/transform": {
       "types": "./dist/providers/comicvine/transform.d.ts",
       "import": "./dist/providers/comicvine/transform.js"
+    },
+    "./providers/comicvine/client": {
+      "types": "./dist/providers/comicvine/client.d.ts",
+      "import": "./dist/providers/comicvine/client.js"
     },
     "./providers/comicvine/volume": {
       "types": "./dist/providers/comicvine/volume.d.ts",
@@ -164,9 +168,21 @@
       "types": "./dist/providers/openstreetmap/index.d.ts",
       "import": "./dist/providers/openstreetmap/index.js"
     },
+    "./providers/openstreetmap/client": {
+      "types": "./dist/providers/openstreetmap/client.d.ts",
+      "import": "./dist/providers/openstreetmap/client.js"
+    },
     "./providers/openstreetmap/place": {
       "types": "./dist/providers/openstreetmap/place.d.ts",
       "import": "./dist/providers/openstreetmap/place.js"
+    },
+    "./providers/openstreetmap/city": {
+      "types": "./dist/providers/openstreetmap/city.d.ts",
+      "import": "./dist/providers/openstreetmap/city.js"
+    },
+    "./providers/openstreetmap/country": {
+      "types": "./dist/providers/openstreetmap/country.d.ts",
+      "import": "./dist/providers/openstreetmap/country.js"
     },
     "./providers/openstreetmap/venue": {
       "types": "./dist/providers/openstreetmap/venue.d.ts",

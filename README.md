@@ -4,7 +4,7 @@ Search, fetch, and normalize media metadata from external providers into a share
 
 This package is meant to be used by apps that need provider-backed lookup and transformation, but do not want provider-specific response shapes leaking through the app.
 
-TMDB, Open Library, GamesDB, and MusicBrainz include live search/fetch clients. IMDb includes a fetch-by-ID title-page scraper for movie and TV titles. Additional providers currently expose source-record transformers: you provide the raw provider payload, and this package normalizes it into `ZuuidData`.
+TMDB, Open Library, ComicVine, GamesDB, MusicBrainz, and OpenStreetMap include live search/fetch clients. IMDb includes a fetch-by-ID title-page scraper for movie and TV titles. Additional providers currently expose source-record transformers: you provide the raw provider payload, and this package normalizes it into `ZuuidData`.
 
 Storage, caching, indexing, review state, object-store keys, and persistence belong in a layer outside this package.
 
@@ -109,20 +109,20 @@ Ratings are normalized to a `0-5` scale when the provider exposes a compatible n
 | TMDB | person | yes | yes | yes |
 | Open Library | book | yes | yes | yes |
 | Open Library | author | yes | yes | yes |
-| ComicVine | volume, issue, story_arc, character, person, publisher | no | no | yes |
+| ComicVine | volume, issue, story_arc, character, person, publisher | yes | yes | yes |
 | IMDb | movie, tv | no | yes | yes |
 | GamesDB | game | yes | yes | yes |
 | GamesDB | platform | no | yes | yes |
 | Jikan | anime, manga, producer, magazine, character, person | no | no | yes |
 | MusicBrainz | release, release-group, recording, artist, label, work | yes | yes | yes |
 | OpenFoodFacts | product | no | no | yes |
-| OpenStreetMap | city, country, place, venue | no | no | yes |
+| OpenStreetMap | city, country, place, venue | yes | yes | yes |
 | Podcast / iTunes | podcast | no | no | yes |
 | Setlist.fm | setlist, artist, venue | no | no | yes |
 | Ticketmaster | event, attraction, venue | no | no | yes |
 | Wger | exercise, equipment | no | no | yes |
 
-For IMDb, search is marked `no` because the scraper fetches known title IDs such as `tt0137523`; it does not implement IMDb search. GamesDB platform search is marked `no` because only game search and ID fetches are currently implemented. For transformer-only providers, "Search" and "Fetch" are marked `no` because this package does not perform those HTTP requests yet. Use your own provider client or stored payloads, wrap the payload in a `SourceRecord`, and call the category transformer.
+For IMDb, search is marked `no` because the scraper fetches known title IDs such as `tt0137523`; it does not implement IMDb search. ComicVine and GamesDB require API keys for live API calls. GamesDB platform search is marked `no` because only game search and ID fetches are currently implemented. For transformer-only providers, "Search" and "Fetch" are marked `no` because this package does not perform those HTTP requests yet. Use your own provider client or stored payloads, wrap the payload in a `SourceRecord`, and call the category transformer.
 
 
 
@@ -153,6 +153,57 @@ const game = await zuuid.play.gamesdb?.game.fetch({ id: 17444 });
 ```
 
 GamesDB transforms accept both simple flat payloads and native TheGamesDB API envelopes with `data.games`, `data.platforms`, lookup maps, and `boxart` image metadata.
+
+## OpenStreetMap
+
+`OpenStreetMapProvider` uses the public Nominatim API for OSM lookup and search. It sends a descriptive `User-Agent` by default and lets you override it. Fetch IDs must be OSM object IDs with a type prefix: `N` for node, `W` for way, or `R` for relation.
+
+```ts
+import { OpenStreetMapProvider } from "@zivue/zuuid/providers/openstreetmap";
+
+const osm = new OpenStreetMapProvider({
+  userAgent: "your-app/1.0 (you@example.com)"
+});
+
+const city = await osm.fetchCity({ id: "R406091" });
+const venues = await osm.searchVenues({ query: "Blue Note Oslo" });
+```
+
+The category-first client exposes OpenStreetMap under `visit.openstreetmap`:
+
+```ts
+const zuuid = createZuuidClient({ providers: { openstreetmap: {} } });
+
+const places = await zuuid.visit.openstreetmap?.place.search({ query: "Eiffel Tower" });
+const country = await zuuid.visit.openstreetmap?.country.fetch({ id: "R2978650" });
+```
+
+## ComicVine Credentials
+
+`ComicVineProvider` uses the ComicVine API and requires an API key:
+
+```ts
+import { ComicVineProvider } from "@zivue/zuuid/providers/comicvine";
+
+const comicvine = new ComicVineProvider({
+  apiKey: process.env.COMICVINE_API_KEY!
+});
+
+const volume = await comicvine.fetchVolume({ id: 1 });
+const issues = await comicvine.searchIssues({ query: "Saga" });
+const publisher = await comicvine.fetchPublisher({ id: 10 });
+```
+
+The category-first client exposes ComicVine under `read.comicvine` and `people.comicvine`:
+
+```ts
+const zuuid = createZuuidClient({
+  providers: { comicvine: { apiKey: process.env.COMICVINE_API_KEY! } }
+});
+
+const volumes = await zuuid.read.comicvine?.volume.search({ query: "Saga" });
+const character = await zuuid.people.comicvine?.character.search({ query: "Spider-Man" });
+```
 
 
 ## MusicBrainz
@@ -228,6 +279,8 @@ const tvShows = await zuuid.tv.tmdb?.search({ query: "Game of Thrones" });
 const people = await zuuid.people.tmdb?.search({ query: "Brad Pitt" });
 const books = await zuuid.read.openlibrary?.search({ query: "The Lord of the Rings" });
 const authors = await zuuid.people.openlibrary?.search({ query: "J. K. Rowling" });
+const comics = await zuuid.read.comicvine?.volume.search({ query: "Saga" });
+const places = await zuuid.visit.openstreetmap?.place.search({ query: "Eiffel Tower" });
 ```
 
 Provider methods are also available directly:
@@ -244,6 +297,22 @@ import { OpenLibraryProvider } from "@zivue/zuuid/providers/openlibrary";
 const openlibrary = new OpenLibraryProvider();
 const books = await openlibrary.searchBooks({ query: "The Lord of the Rings" });
 const authors = await openlibrary.searchAuthors({ query: "J. K. Rowling" });
+```
+
+```ts
+import { ComicVineProvider } from "@zivue/zuuid/providers/comicvine";
+
+const comicvine = new ComicVineProvider({ apiKey: process.env.COMICVINE_API_KEY! });
+const volumes = await comicvine.searchVolumes({ query: "Saga" });
+const issues = await comicvine.searchIssues({ query: "Saga" });
+```
+
+```ts
+import { OpenStreetMapProvider } from "@zivue/zuuid/providers/openstreetmap";
+
+const osm = new OpenStreetMapProvider();
+const places = await osm.searchPlaces({ query: "Eiffel Tower" });
+const city = await osm.fetchCity({ id: "R406091" });
 ```
 
 Search options include pagination and common TMDB filters:
@@ -430,6 +499,10 @@ npm run example:search -- author "J. K. Rowling"
 npm run example:search -- release-group "Kind of Blue"
 npm run example:search -- recording "So What"
 npm run example:search -- artist "Miles Davis"
+COMICVINE_API_KEY=... npm run example:search -- comicvine:volume "Saga"
+COMICVINE_API_KEY=... npm run example:search -- comicvine:issue "Saga"
+npm run example:search -- openstreetmap:place "Eiffel Tower"
+npm run example:search -- openstreetmap:venue "Blue Note Oslo"
 ```
 
 Fetch and transform a selected provider ID:
@@ -447,11 +520,15 @@ Fetch live provider examples:
 ```sh
 npm run example:fetch -- imdb:movie tt0137523
 npm run example:fetch -- imdb:tv tt0944947
+COMICVINE_API_KEY=... npm run example:fetch -- comicvine:volume 1
+COMICVINE_API_KEY=... npm run example:fetch -- comicvine:issue 101
 GAMESDB_API_KEY=... npm run example:fetch -- gamesdb:game 17444
 GAMESDB_API_KEY=... npm run example:fetch -- gamesdb:platform 6
 npm run example:fetch -- musicbrainz:release f5093c06-23e3-404f-aeaa-40f72885ee3a
 npm run example:fetch -- musicbrainz:release-group aaa50249-1e6b-3910-b830-7e2fb622a8c4
 npm run example:fetch -- musicbrainz:artist 561d854a-6a28-4aa7-8c99-323e6ce46c2a
+npm run example:fetch -- openstreetmap:city R406091
+npm run example:fetch -- openstreetmap:country R2978650
 ```
 
 Transformer-only providers do not have fetch examples. Wrap a real payload from your own provider client in a `SourceRecord` and call the transformer directly.
@@ -487,8 +564,10 @@ Provider exports:
 - `TmdbProvider`
 - `OpenLibraryProvider`
 - `ImdbProvider`
+- `ComicVineProvider`
 - `GamesDbProvider`
 - `MusicBrainzProvider`
+- `OpenStreetMapProvider`
 - `transformTmdbMovie(sourceRecord, options?)`
 - `transformTmdbTv(sourceRecord, options?)`
 - `transformTmdbPerson(sourceRecord, options?)`

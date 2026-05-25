@@ -1,3 +1,10 @@
+import {
+  ComicVineProvider,
+  transformComicVine,
+  type ComicVineProviderOptions,
+  type ComicVineSearchInput,
+  type FetchComicVineInput
+} from "./providers/comicvine/index.js";
 import type { SearchResponse, ZuuidData, ZuuidSearchResult } from "./entity.js";
 import {
   MusicBrainzProvider,
@@ -20,6 +27,13 @@ import {
   type OpenLibraryProviderOptions,
   type OpenLibrarySearchInput
 } from "./providers/openlibrary/index.js";
+import {
+  OpenStreetMapProvider,
+  transformOpenStreetMapPlace,
+  type FetchOpenStreetMapInput,
+  type OpenStreetMapProviderOptions,
+  type OpenStreetMapSearchInput
+} from "./providers/openstreetmap/index.js";
 import {
   TmdbProvider,
   transformTmdbMovie,
@@ -50,10 +64,12 @@ import {
 import type { SourceRecord } from "./source.js";
 
 export type ProviderConfigs = {
+  comicvine?: ComicVineProviderOptions;
   gamesdb?: GamesDbProviderOptions;
   imdb?: ImdbProviderOptions;
   musicbrainz?: MusicBrainzProviderOptions;
   openlibrary?: OpenLibraryProviderOptions;
+  openstreetmap?: OpenStreetMapProviderOptions;
   tmdb?: TmdbProviderOptions;
 };
 
@@ -99,9 +115,19 @@ export type ZuuidClient = {
       artist: ProviderClient<FetchMusicBrainzInput, MusicBrainzSearchInput>;
       label: ProviderClient<FetchMusicBrainzInput, MusicBrainzSearchInput>;
     };
+    comicvine?: {
+      character: ProviderClient<FetchComicVineInput, ComicVineSearchInput>;
+      person: ProviderClient<FetchComicVineInput, ComicVineSearchInput>;
+      publisher: ProviderClient<FetchComicVineInput, ComicVineSearchInput>;
+    };
   };
   read: {
     openlibrary?: ProviderClient<FetchOpenLibraryBookInput, OpenLibrarySearchInput>;
+    comicvine?: {
+      volume: ProviderClient<FetchComicVineInput, ComicVineSearchInput>;
+      issue: ProviderClient<FetchComicVineInput, ComicVineSearchInput>;
+      storyArc: ProviderClient<FetchComicVineInput, ComicVineSearchInput>;
+    };
   };
   listen: {
     musicbrainz?: {
@@ -117,13 +143,23 @@ export type ZuuidClient = {
       platform: FetchOnlyProviderClient<FetchGamesDbPlatformInput>;
     };
   };
+  visit: {
+    openstreetmap?: {
+      city: ProviderClient<FetchOpenStreetMapInput, OpenStreetMapSearchInput>;
+      country: ProviderClient<FetchOpenStreetMapInput, OpenStreetMapSearchInput>;
+      place: ProviderClient<FetchOpenStreetMapInput, OpenStreetMapSearchInput>;
+      venue: ProviderClient<FetchOpenStreetMapInput, OpenStreetMapSearchInput>;
+    };
+  };
 };
 
 export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
+  const comicvine = config.providers?.comicvine ? new ComicVineProvider(config.providers.comicvine) : undefined;
   const gamesdb = config.providers?.gamesdb ? new GamesDbProvider(config.providers.gamesdb) : undefined;
   const imdb = config.providers?.imdb ? new ImdbProvider(config.providers.imdb) : undefined;
   const musicbrainz = config.providers?.musicbrainz ? new MusicBrainzProvider(config.providers.musicbrainz) : undefined;
   const openlibrary = config.providers?.openlibrary ? new OpenLibraryProvider(config.providers.openlibrary) : undefined;
+  const openstreetmap = config.providers?.openstreetmap ? new OpenStreetMapProvider(config.providers.openstreetmap) : undefined;
   const tmdb = config.providers?.tmdb ? new TmdbProvider(config.providers.tmdb) : undefined;
 
   return Object.freeze({
@@ -199,6 +235,31 @@ export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
               transform: (source: SourceRecord) => transformMusicBrainzLabel(source)
             })
           })
+        : undefined,
+      comicvine: comicvine
+        ? Object.freeze({
+            character: Object.freeze({
+              fetch: (input: FetchComicVineInput) => comicvine.fetchCharacter(input),
+              fetchSourceRecord: (input: FetchComicVineInput) => comicvine.fetchCharacterSourceRecord(input),
+              search: (input: ComicVineSearchInput) => comicvine.searchCharacters(input),
+              searchSourceRecords: (input: ComicVineSearchInput) => comicvine.searchCharacterSourceRecords(input),
+              transform: (source: SourceRecord) => transformComicVine(source)
+            }),
+            person: Object.freeze({
+              fetch: (input: FetchComicVineInput) => comicvine.fetchPerson(input),
+              fetchSourceRecord: (input: FetchComicVineInput) => comicvine.fetchPersonSourceRecord(input),
+              search: (input: ComicVineSearchInput) => comicvine.searchPeople(input),
+              searchSourceRecords: (input: ComicVineSearchInput) => comicvine.searchPersonSourceRecords(input),
+              transform: (source: SourceRecord) => transformComicVine(source)
+            }),
+            publisher: Object.freeze({
+              fetch: (input: FetchComicVineInput) => comicvine.fetchPublisher(input),
+              fetchSourceRecord: (input: FetchComicVineInput) => comicvine.fetchPublisherSourceRecord(input),
+              search: (input: ComicVineSearchInput) => comicvine.searchPublishers(input),
+              searchSourceRecords: (input: ComicVineSearchInput) => comicvine.searchPublisherSourceRecords(input),
+              transform: (source: SourceRecord) => transformComicVine(source)
+            })
+          })
         : undefined
     }),
     read: Object.freeze({
@@ -209,6 +270,31 @@ export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
             search: (input: OpenLibrarySearchInput) => openlibrary.searchBooks(input),
             searchSourceRecords: (input: OpenLibrarySearchInput) => openlibrary.searchBookSourceRecords(input),
             transform: (source: SourceRecord) => transformOpenLibraryBook(source, openlibrary.transformOptions())
+          })
+        : undefined,
+      comicvine: comicvine
+        ? Object.freeze({
+            volume: Object.freeze({
+              fetch: (input: FetchComicVineInput) => comicvine.fetchVolume(input),
+              fetchSourceRecord: (input: FetchComicVineInput) => comicvine.fetchVolumeSourceRecord(input),
+              search: (input: ComicVineSearchInput) => comicvine.searchVolumes(input),
+              searchSourceRecords: (input: ComicVineSearchInput) => comicvine.searchVolumeSourceRecords(input),
+              transform: (source: SourceRecord) => transformComicVine(source)
+            }),
+            issue: Object.freeze({
+              fetch: (input: FetchComicVineInput) => comicvine.fetchIssue(input),
+              fetchSourceRecord: (input: FetchComicVineInput) => comicvine.fetchIssueSourceRecord(input),
+              search: (input: ComicVineSearchInput) => comicvine.searchIssues(input),
+              searchSourceRecords: (input: ComicVineSearchInput) => comicvine.searchIssueSourceRecords(input),
+              transform: (source: SourceRecord) => transformComicVine(source)
+            }),
+            storyArc: Object.freeze({
+              fetch: (input: FetchComicVineInput) => comicvine.fetchStoryArc(input),
+              fetchSourceRecord: (input: FetchComicVineInput) => comicvine.fetchStoryArcSourceRecord(input),
+              search: (input: ComicVineSearchInput) => comicvine.searchStoryArcs(input),
+              searchSourceRecords: (input: ComicVineSearchInput) => comicvine.searchStoryArcSourceRecords(input),
+              transform: (source: SourceRecord) => transformComicVine(source)
+            })
           })
         : undefined
     }),
@@ -260,6 +346,40 @@ export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
               fetch: (input: FetchGamesDbPlatformInput) => gamesdb.fetchPlatform(input),
               fetchSourceRecord: (input: FetchGamesDbPlatformInput) => gamesdb.fetchPlatformSourceRecord(input),
               transform: (source: SourceRecord) => transformGamesDbPlatform(source, gamesdb.transformOptions())
+            })
+          })
+        : undefined
+    }),
+    visit: Object.freeze({
+      openstreetmap: openstreetmap
+        ? Object.freeze({
+            city: Object.freeze({
+              fetch: (input: FetchOpenStreetMapInput) => openstreetmap.fetchCity(input),
+              fetchSourceRecord: (input: FetchOpenStreetMapInput) => openstreetmap.fetchCitySourceRecord(input),
+              search: (input: OpenStreetMapSearchInput) => openstreetmap.searchCities(input),
+              searchSourceRecords: (input: OpenStreetMapSearchInput) => openstreetmap.searchCitySourceRecords(input),
+              transform: (source: SourceRecord) => transformOpenStreetMapPlace(source)
+            }),
+            country: Object.freeze({
+              fetch: (input: FetchOpenStreetMapInput) => openstreetmap.fetchCountry(input),
+              fetchSourceRecord: (input: FetchOpenStreetMapInput) => openstreetmap.fetchCountrySourceRecord(input),
+              search: (input: OpenStreetMapSearchInput) => openstreetmap.searchCountries(input),
+              searchSourceRecords: (input: OpenStreetMapSearchInput) => openstreetmap.searchCountrySourceRecords(input),
+              transform: (source: SourceRecord) => transformOpenStreetMapPlace(source)
+            }),
+            place: Object.freeze({
+              fetch: (input: FetchOpenStreetMapInput) => openstreetmap.fetchPlace(input),
+              fetchSourceRecord: (input: FetchOpenStreetMapInput) => openstreetmap.fetchPlaceSourceRecord(input),
+              search: (input: OpenStreetMapSearchInput) => openstreetmap.searchPlaces(input),
+              searchSourceRecords: (input: OpenStreetMapSearchInput) => openstreetmap.searchPlaceSourceRecords(input),
+              transform: (source: SourceRecord) => transformOpenStreetMapPlace(source)
+            }),
+            venue: Object.freeze({
+              fetch: (input: FetchOpenStreetMapInput) => openstreetmap.fetchVenue(input),
+              fetchSourceRecord: (input: FetchOpenStreetMapInput) => openstreetmap.fetchVenueSourceRecord(input),
+              search: (input: OpenStreetMapSearchInput) => openstreetmap.searchVenues(input),
+              searchSourceRecords: (input: OpenStreetMapSearchInput) => openstreetmap.searchVenueSourceRecords(input),
+              transform: (source: SourceRecord) => transformOpenStreetMapPlace(source)
             })
           })
         : undefined
