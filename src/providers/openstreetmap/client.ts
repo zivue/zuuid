@@ -100,6 +100,7 @@ export async function searchOpenStreetMap(provider: OpenStreetMapProvider, categ
       id: zuuid,
       zuuid,
       category: normalizedCategory,
+      kind: "visit",
       title,
       date: null,
       cover: stringField(item, "icon") ?? null,

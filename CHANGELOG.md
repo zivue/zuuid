@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.8 - 2026-05-27
+
+- Added `primary_type` details to MusicBrainz work transforms so forms such as suite and opera are directly accessible.
+- Classified product, food, drink, beverage, meal, recipe, and supplement categories under the `consume` kind.
+- Added `kind` to transformed search results across providers.
+- Added richer OpenFoodFacts nutrition/classification metadata, clearer OpenFoodFacts throttle errors, normalized MusicBrainz work role names, and a live provider smoke-check script.
+- Added a default Open Library User-Agent for more reliable live API access.
+
 ## 0.2.7 - 2026-05-26
 
 - Fixed OpenFoodFacts search to use the JSON search endpoint so different product queries return distinct matches.

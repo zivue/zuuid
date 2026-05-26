@@ -198,6 +198,7 @@ export async function searchTmdbMovies(
       id: zuuid,
       zuuid,
       category: TMDB_MOVIE_CATEGORY,
+      kind: "watch",
       title,
       date: stringField(result.release_date) ?? null,
       cover: mediaUrl(result.poster_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL) ?? null,

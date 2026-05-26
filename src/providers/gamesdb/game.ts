@@ -66,6 +66,7 @@ export async function searchGamesDbGames(
       id: zuuid,
       zuuid,
       category: GAMESDB_GAME_CATEGORY,
+      kind: "play",
       title,
       date: releaseDate(stringField(game, "release_date")) ?? null,
       cover: mediaUrl(primaryImage(game, payload, id), imageBaseUrl(payload, options.imageBaseUrl)) ?? null,

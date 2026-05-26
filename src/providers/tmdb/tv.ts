@@ -202,6 +202,7 @@ export async function searchTmdbTv(
       id: zuuid,
       zuuid,
       category: ZUUID_TV_CATEGORY,
+      kind: "watch",
       title,
       date: stringField(result.first_air_date) ?? null,
       cover: mediaUrl(result.poster_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL) ?? null,

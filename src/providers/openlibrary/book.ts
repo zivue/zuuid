@@ -183,6 +183,7 @@ export async function searchOpenLibraryBooks(
       id: zuuid,
       zuuid,
       category: OPEN_LIBRARY_BOOK_CATEGORY,
+      kind: "read",
       title,
       date: item.first_publish_year === undefined ? stringField(item.first_publish_date) ?? null : String(item.first_publish_year),
       cover: coverUrl(item.cover_i, options.coverBaseUrl ?? OPEN_LIBRARY_COVER_BASE_URL),

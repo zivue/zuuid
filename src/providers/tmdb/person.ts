@@ -146,6 +146,7 @@ export async function searchTmdbPeople(
       id: zuuid,
       zuuid,
       category: ZUUID_PERSON_CATEGORY,
+      kind: "people",
       title,
       date: null,
       cover: mediaUrl(result.profile_path ?? undefined, options.posterBaseUrl ?? TMDB_POSTER_BASE_URL) ?? null,

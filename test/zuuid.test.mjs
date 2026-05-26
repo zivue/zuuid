@@ -69,6 +69,8 @@ test("categoryFor and kindForCategory match core category grouping", () => {
   assert.deepEqual(categoryFor(" Movie "), { kind: "watch", category: "movie" });
   assert.equal(kindForCategory("book"), "read");
   assert.equal(kindForCategory("restaurant"), "visit");
+  assert.equal(kindForCategory("product"), "consume");
+  assert.equal(kindForCategory("food"), "consume");
   assert.equal(kindForCategory("collection"), "collection");
 });
 
@@ -680,6 +682,7 @@ test("TmdbProvider searches unified movie, tv, and people results", async () => 
 
   assert.equal(movies.results[0]?.title, "Fight Club");
   assert.equal(movies.results[0]?.category, "movie");
+  assert.equal(movies.results[0]?.kind, "watch");
   assert.equal(movies.results[0]?.date, "1999-10-15");
   assert.equal(movies.results[0]?.rating, 4.2);
   assert.equal(movies.results[0]?.cover?.includes("image.tmdb.org"), true);
@@ -734,6 +737,7 @@ test("OpenFoodFactsProvider fetches and searches products", async () => {
   assert.deepEqual(source?.source, { provider: "openfoodfacts", category: "product", externalId: "3017620422003" });
   assert.equal(data?.primaryTitle, "Nutella");
   assert.equal(search.results[0]?.title, "Oat Bar");
+  assert.equal(search.results[0]?.kind, "consume");
   assert.equal(search.results[0]?.rating, 4);
   assert.deepEqual(search.pagination, { page: 2, totalPages: 5, totalResults: 42 });
   assert.equal(requestedUrls[0].pathname, "/api/v2/product/3017620422003.json");

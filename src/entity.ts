@@ -2,7 +2,7 @@ import type { ExternalId, Provenance } from "./source.js";
 import type { JsonValue } from "./types.js";
 import { normalizeUuid } from "./uuid.js";
 
-export type EntityKind = "event" | "listen" | "people" | "play" | "read" | "visit" | "watch" | string;
+export type EntityKind = "consume" | "event" | "listen" | "people" | "play" | "read" | "visit" | "watch" | string;
 
 export type CategoryInfo = {
   category: string;
@@ -110,6 +110,7 @@ export type RecommendationEdge = ZuuidListItem & {
 };
 
 export type ZuuidSearchResult = ZuuidListItem & {
+  kind: EntityKind;
   source: ExternalId;
 };
 
@@ -218,6 +219,14 @@ export function kindForCategory(category: string): EntityKind {
     case "city":
     case "country":
       return "visit";
+    case "product":
+    case "food":
+    case "drink":
+    case "beverage":
+    case "meal":
+    case "recipe":
+    case "supplement":
+      return "consume";
     case "event":
     case "concert":
     case "screening":

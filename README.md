@@ -581,6 +581,15 @@ data/<provider>/search/<category>/<query>.raw-search.json
 data/<provider>/search/<category>/<query>.zuuid-search.json
 ```
 
+
+Live provider smoke checks can be run with:
+
+```bash
+npm run provider:smoke
+```
+
+The script skips credentialed providers when their API keys are not present.
+
 ## API Reference
 
 Core exports:

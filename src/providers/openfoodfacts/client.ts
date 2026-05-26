@@ -1,4 +1,4 @@
-import type { SearchResponse, ZuuidData, ZuuidSearchResult } from "../../entity.js";
+import { kindForCategory, type SearchResponse, type ZuuidData, type ZuuidSearchResult } from "../../entity.js";
 import { providerZuuid } from "../../identity.js";
 import { createSourceRecord, type SourceRecord } from "../../source.js";
 import type { JsonValue } from "../../types.js";
@@ -11,7 +11,7 @@ import {
   OPENFOODFACTS_PRODUCT_CATEGORY,
   OPENFOODFACTS_PROVIDER
 } from "./constants.js";
-import { transformOpenFoodFactsProduct } from "./product.js";
+import { openFoodFactsPublicCategory, transformOpenFoodFactsProduct } from "./product.js";
 import type {
   FetchOpenFoodFactsProductInput,
   OpenFoodFactsFetchLike,
@@ -40,12 +40,14 @@ export class OpenFoodFactsProvider {
     const url = new URL(`${apiBase.replace(/\/$/, "")}/${path.replace(/^\//, "")}`);
     for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
     const response = await this.fetchImpl(url, { headers: { accept: "application/json", "user-agent": this.userAgent } });
+    const body = await response.text().catch(() => "");
     if (response.status === 404) return undefined;
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      throw new Error(`OpenFoodFacts API returned ${response.status}: ${body}`);
+    if (!response.ok) throw new Error(openFoodFactsError(response.status, body));
+    try {
+      return JSON.parse(body) as T;
+    } catch {
+      throw new Error(openFoodFactsError(response.status, body));
     }
-    return response.json() as Promise<T>;
   }
 
   async fetchProductSourceRecord(input: FetchOpenFoodFactsProductInput): Promise<SourceRecord | undefined> {
@@ -93,10 +95,12 @@ export async function searchOpenFoodFactsProducts(provider: OpenFoodFactsProvide
     const title = productTitle(product);
     if (!externalId || !title) continue;
     const zuuid = await providerZuuid({ provider: OPENFOODFACTS_PROVIDER, category: OPENFOODFACTS_PRODUCT_CATEGORY, externalId });
+    const publicCategory = openFoodFactsPublicCategory(product);
     results.push({
       id: zuuid,
       zuuid,
-      category: OPENFOODFACTS_PRODUCT_CATEGORY,
+      category: publicCategory,
+      kind: kindForCategory(publicCategory),
       title,
       date: null,
       cover: stringField(product, "image_front_url") ?? stringField(product, "image_url") ?? null,
@@ -168,4 +172,13 @@ function productRating(product: Record<string, JsonValue>): number | null {
 
 function isObject(value: JsonValue): value is Record<string, JsonValue> {
   return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function openFoodFactsError(status: number, body: string): string {
+  const trimmed = body.trim();
+  if (trimmed.startsWith("<!DOCTYPE html") || trimmed.startsWith("<html")) {
+    return `OpenFoodFacts API returned ${status}: HTML response, likely temporary service unavailability or anonymous request throttling`;
+  }
+  if (!trimmed) return `OpenFoodFacts API returned ${status}`;
+  return `OpenFoodFacts API returned ${status}: ${trimmed.slice(0, 500)}`;
 }

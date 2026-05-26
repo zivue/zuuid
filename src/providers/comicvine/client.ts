@@ -1,4 +1,4 @@
-import type { SearchResponse, ZuuidData, ZuuidSearchResult } from "../../entity.js";
+import { kindForCategory, type SearchResponse, type ZuuidData, type ZuuidSearchResult } from "../../entity.js";
 import { providerZuuid } from "../../identity.js";
 import { createSourceRecord, type SourceRecord } from "../../source.js";
 import type { JsonValue } from "../../types.js";
@@ -139,10 +139,12 @@ export async function searchComicVine(provider: ComicVineProvider, category: str
     const title = stringField(item, "name") ?? stringField(item, "title");
     if (!externalId || !title) continue;
     const zuuid = await providerZuuid({ provider: COMICVINE_PROVIDER, category, externalId });
+    const publicCategory = CATEGORY_CONFIG[comicCategory].publicCategory;
     results.push({
       id: zuuid,
       zuuid,
-      category: CATEGORY_CONFIG[comicCategory].publicCategory,
+      category: publicCategory,
+      kind: kindForCategory(publicCategory),
       title,
       date: dateFor(item),
       cover: nestedString(item, ["image", "super_url"]) ?? nestedString(item, ["image", "original_url"]) ?? nestedString(item, ["image", "medium_url"]) ?? null,

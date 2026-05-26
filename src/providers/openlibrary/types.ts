@@ -4,6 +4,7 @@ export type OpenLibraryProviderOptions = {
   apiBase?: string;
   coverBaseUrl?: string | null;
   fetch?: OpenLibraryFetchLike;
+  userAgent?: string;
 };
 
 export type OpenLibraryTransformOptions = {

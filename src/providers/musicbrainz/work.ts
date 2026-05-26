@@ -19,6 +19,7 @@ export async function transformMusicBrainzWork(source: SourceRecord): Promise<Zu
   addMusicBrainzAliases(data, payload, title);
   addMusicBrainzDescription(data, payload);
   const workType = stringField(payload, "type");
+  addDetail(data, MUSICBRAINZ_PROVIDER, "primary_type", workType);
   addDetail(data, MUSICBRAINZ_PROVIDER, "type", workType);
   addTag(data, workType);
   addDetail(data, MUSICBRAINZ_PROVIDER, "iswcs", arrayField(payload, "iswcs").filter((value): value is string => typeof value === "string"));
@@ -40,11 +41,29 @@ async function addArtistRelations(data: ZuuidData, payload: Record<string, JsonV
     const artist = artistValue as Record<string, JsonValue>;
     const displayTitle = preferredArtistTitle(relation, artist);
     const originalTitle = stringField(artist, "name");
-    await addRelation(data, MUSICBRAINZ_PROVIDER, MUSICBRAINZ_ARTIST_CATEGORY, stringField(artist, "id"), stringField(relation, "type") ?? "artist", displayTitle, {
+    const rawRelationType = stringField(relation, "type") ?? "artist";
+    const relationType = normalizedWorkRelationType(rawRelationType);
+    await addRelation(data, MUSICBRAINZ_PROVIDER, MUSICBRAINZ_ARTIST_CATEGORY, stringField(artist, "id"), relationType, displayTitle, {
       order: index,
-      attribute: originalTitle && originalTitle !== displayTitle ? originalTitle : null
+      attribute: originalTitle && originalTitle !== displayTitle ? originalTitle : null,
+      data: rawRelationType !== relationType ? { originalRelationType: rawRelationType } : undefined
     });
     index += 1;
+  }
+}
+
+function normalizedWorkRelationType(value: string): string {
+  switch (value.trim().toLowerCase()) {
+    case "instrument arranger":
+      return "arranger";
+    case "vocal arranger":
+      return "arranger";
+    case "orchestrator":
+      return "arranger";
+    case "revised by":
+      return "reviser";
+    default:
+      return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "artist";
   }
 }
 

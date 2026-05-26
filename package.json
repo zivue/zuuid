@@ -1,6 +1,6 @@
 {
   "name": "@zivue/zuuid",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "TypeScript helpers for fetching, searching, and transforming Zuuid datasets.",
   "type": "module",
   "license": "MIT",
@@ -25,7 +25,8 @@
     "dist",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "scripts/provider-smoke.mjs"
   ],
   "exports": {
     ".": {
@@ -296,7 +297,8 @@
     "example:search": "npm run build && node examples/search.mjs",
     "prepublishOnly": "npm run clean && npm run test",
     "test": "npm run build && node --test test/*.test.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "provider:smoke": "npm run build && node scripts/provider-smoke.mjs"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

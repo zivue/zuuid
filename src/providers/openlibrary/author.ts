@@ -116,6 +116,7 @@ export async function searchOpenLibraryAuthors(
       id: zuuid,
       zuuid,
       category: OPEN_LIBRARY_AUTHOR_CATEGORY,
+      kind: "people",
       title,
       date: stringField(item.birth_date) ?? null,
       cover: null,

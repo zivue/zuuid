@@ -238,7 +238,7 @@ test("transformMusicBrainz additional entity types", async () => {
         { "target-type": "artist", type: "composer", artist: { id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a", name: "Miles Davis" } },
         {
           "target-type": "artist",
-          type: "composer",
+          type: "instrument arranger",
           artist: {
             id: "9ddd7abc-9e1b-471d-8031-583bc6bc8be9",
             name: "Пётр Ильич Чайковский",
@@ -252,8 +252,10 @@ test("transformMusicBrainz additional entity types", async () => {
   const workData = await transformMusicBrainzWork(work);
   assert.equal(workData.kind, "listen");
   assert.equal(workData.externalIds.some((id) => id.source === "iswc"), true);
+  assert.equal(workData.details.some((detail) => detail.key === "primary_type" && detail.value === "Opera"), true);
   assert.equal(workData.tags.includes("opera"), true);
   assert.equal(workData.relations.some((relation) => relation.title === "Pyotr Ilyich Tchaikovsky" && relation.attribute === "Пётр Ильич Чайковский"), true);
+  assert.equal(workData.relations.some((relation) => relation.relationType === "arranger" && relation.data?.originalRelationType === "instrument arranger"), true);
 });
 
 test("transformOpenFoodFactsProduct maps product nutrition tags", async () => {
@@ -269,7 +271,8 @@ test("transformOpenFoodFactsProduct maps product nutrition tags", async () => {
     observedAt
   });
   const data = await transformOpenFoodFactsProduct(source);
-  assert.equal(data.category, "product");
+  assert.equal(data.kind, "consume");
+  assert.equal(data.category, "food");
   assert.equal(data.cover, "https://img.test/oat.jpg");
   assert.equal(data.tags.includes("snacks"), true);
   assert.equal(data.details.some((detail) => detail.key === "calories_100g"), true);

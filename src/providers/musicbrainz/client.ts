@@ -1,4 +1,4 @@
-import type { SearchResponse, ZuuidData, ZuuidSearchResult } from "../../entity.js";
+import { kindForCategory, type SearchResponse, type ZuuidData, type ZuuidSearchResult } from "../../entity.js";
 import { providerZuuid } from "../../identity.js";
 import { createSourceRecord, type SourceRecord } from "../../source.js";
 import type { JsonValue } from "../../types.js";
@@ -111,10 +111,12 @@ export async function searchMusicBrainz(provider: MusicBrainzProvider, category:
     const title = titleFor(item, category);
     if (!externalId || !title) continue;
     const zuuid = await providerZuuid({ provider: MUSICBRAINZ_PROVIDER, category, externalId });
+    const publicResultCategory = publicCategory(category);
     results.push({
       id: zuuid,
       zuuid,
-      category: publicCategory(category),
+      category: publicResultCategory,
+      kind: kindForCategory(publicResultCategory),
       title,
       date: dateFor(item, category),
       cover: coverFor(item, category, options),

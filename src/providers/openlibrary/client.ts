@@ -14,18 +14,20 @@ import {
   transformOpenLibraryBook,
   type FetchOpenLibraryBookInput
 } from "./book.js";
-import { OPEN_LIBRARY_API_BASE, OPEN_LIBRARY_COVER_BASE_URL } from "./constants.js";
+import { OPEN_LIBRARY_API_BASE, OPEN_LIBRARY_COVER_BASE_URL, OPEN_LIBRARY_DEFAULT_USER_AGENT } from "./constants.js";
 import type { OpenLibraryFetchLike, OpenLibraryProviderOptions, OpenLibrarySearchInput, OpenLibraryTransformOptions } from "./types.js";
 
 export class OpenLibraryProvider {
   readonly apiBase: string;
   readonly coverBaseUrl: string | null;
+  readonly userAgent: string;
 
   private readonly fetchImpl: OpenLibraryFetchLike;
 
   constructor(options: OpenLibraryProviderOptions = {}) {
     this.apiBase = options.apiBase ?? OPEN_LIBRARY_API_BASE;
     this.coverBaseUrl = options.coverBaseUrl === undefined ? OPEN_LIBRARY_COVER_BASE_URL : options.coverBaseUrl;
+    this.userAgent = options.userAgent ?? OPEN_LIBRARY_DEFAULT_USER_AGENT;
     this.fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
   }
 
@@ -37,6 +39,7 @@ export class OpenLibraryProvider {
 
     const headers = new Headers();
     headers.set("accept", "application/json");
+    headers.set("user-agent", this.userAgent);
 
     const response = await this.fetchImpl(url, { headers });
     if (response.status === 404) {
