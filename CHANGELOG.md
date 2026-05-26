@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.7 - 2026-05-26
+
+- Fixed OpenFoodFacts search to use the JSON search endpoint so different product queries return distinct matches.
+- Improved MusicBrainz work transforms by tagging work types and preferring Latin display names for artist relations while preserving native-script names.
+
 ## 0.2.6 - 2026-05-26
 
 - Added live OpenFoodFacts product lookup and search support.

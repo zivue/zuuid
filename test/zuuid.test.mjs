@@ -738,8 +738,9 @@ test("OpenFoodFactsProvider fetches and searches products", async () => {
   assert.deepEqual(search.pagination, { page: 2, totalPages: 5, totalResults: 42 });
   assert.equal(requestedUrls[0].pathname, "/api/v2/product/3017620422003.json");
   assert.equal(requestedUrls[0].searchParams.has("fields"), true);
-  assert.equal(requestedUrls[1].pathname, "/api/v2/search");
+  assert.equal(requestedUrls[1].pathname, "/cgi/search.pl");
   assert.equal(requestedUrls[1].searchParams.get("search_terms"), "oat");
+  assert.equal(requestedUrls[1].searchParams.get("json"), "1");
   assert.equal(requestedUrls[1].searchParams.get("page_size"), "10");
 });
 

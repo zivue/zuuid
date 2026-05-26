@@ -232,15 +232,28 @@ test("transformMusicBrainz additional entity types", async () => {
     payload: {
       id: "0e3d8d4d-7b6b-3f9b-8a45-9f477f86f30f",
       title: "So What",
-      type: "Song",
+      type: "Opera",
       iswcs: ["T-070.139.417-0"],
-      relations: [{ "target-type": "artist", type: "composer", artist: { id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a", name: "Miles Davis" } }]
+      relations: [
+        { "target-type": "artist", type: "composer", artist: { id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a", name: "Miles Davis" } },
+        {
+          "target-type": "artist",
+          type: "composer",
+          artist: {
+            id: "9ddd7abc-9e1b-471d-8031-583bc6bc8be9",
+            name: "Пётр Ильич Чайковский",
+            "sort-name": "Tchaikovsky, Pyotr Ilyich"
+          }
+        }
+      ]
     },
     observedAt
   });
   const workData = await transformMusicBrainzWork(work);
   assert.equal(workData.kind, "listen");
   assert.equal(workData.externalIds.some((id) => id.source === "iswc"), true);
+  assert.equal(workData.tags.includes("opera"), true);
+  assert.equal(workData.relations.some((relation) => relation.title === "Pyotr Ilyich Tchaikovsky" && relation.attribute === "Пётр Ильич Чайковский"), true);
 });
 
 test("transformOpenFoodFactsProduct maps product nutrition tags", async () => {

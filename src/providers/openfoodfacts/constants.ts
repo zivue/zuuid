@@ -1,6 +1,7 @@
 export const OPENFOODFACTS_PROVIDER = "openfoodfacts";
 export const OPENFOODFACTS_PRODUCT_CATEGORY = "product";
 export const OPENFOODFACTS_API_BASE = "https://world.openfoodfacts.org/api/v2";
+export const OPENFOODFACTS_SEARCH_API_BASE = "https://world.openfoodfacts.org/cgi";
 export const OPENFOODFACTS_DEFAULT_USER_AGENT = "@zivue/zuuid OpenFoodFacts client (+https://github.com/zivue/zuuid)";
 export const OPENFOODFACTS_DEFAULT_FIELDS = [
   "code",

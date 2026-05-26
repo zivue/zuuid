@@ -2,6 +2,7 @@ export type OpenFoodFactsFetchLike = (input: string | URL, init?: RequestInit) =
 
 export type OpenFoodFactsProviderOptions = {
   apiBase?: string;
+  searchApiBase?: string;
   fetch?: OpenFoodFactsFetchLike;
   userAgent?: string;
   fields?: string[];

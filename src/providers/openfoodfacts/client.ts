@@ -6,6 +6,7 @@ import { nestedString, normalizeRating, objectPayload, stringField, valueAsStrin
 import {
   OPENFOODFACTS_API_BASE,
   OPENFOODFACTS_DEFAULT_FIELDS,
+  OPENFOODFACTS_SEARCH_API_BASE,
   OPENFOODFACTS_DEFAULT_USER_AGENT,
   OPENFOODFACTS_PRODUCT_CATEGORY,
   OPENFOODFACTS_PROVIDER
@@ -22,19 +23,21 @@ import type {
 
 export class OpenFoodFactsProvider {
   readonly apiBase: string;
+  readonly searchApiBase: string;
   readonly userAgent: string;
   readonly fields: string[];
   private readonly fetchImpl: OpenFoodFactsFetchLike;
 
   constructor(options: OpenFoodFactsProviderOptions = {}) {
     this.apiBase = options.apiBase ?? OPENFOODFACTS_API_BASE;
+    this.searchApiBase = options.searchApiBase ?? searchApiBaseFor(this.apiBase);
     this.fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.userAgent = options.userAgent ?? OPENFOODFACTS_DEFAULT_USER_AGENT;
     this.fields = options.fields ?? [...OPENFOODFACTS_DEFAULT_FIELDS];
   }
 
-  async getJson<T>(path: string, params: Record<string, string>): Promise<T | undefined> {
-    const url = new URL(`${this.apiBase.replace(/\/$/, "")}/${path.replace(/^\//, "")}`);
+  async getJson<T>(path: string, params: Record<string, string>, apiBase = this.apiBase): Promise<T | undefined> {
+    const url = new URL(`${apiBase.replace(/\/$/, "")}/${path.replace(/^\//, "")}`);
     for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
     const response = await this.fetchImpl(url, { headers: { accept: "application/json", "user-agent": this.userAgent } });
     if (response.status === 404) return undefined;
@@ -111,12 +114,22 @@ export async function searchOpenFoodFactsProducts(provider: OpenFoodFactsProvide
 async function searchPayload(provider: OpenFoodFactsProvider, input: OpenFoodFactsSearchInput): Promise<OpenFoodFactsSearchResponse<JsonValue>> {
   const query = input.query.trim();
   if (!query) throw new Error("OpenFoodFacts search query must not be empty");
-  return await provider.getJson<OpenFoodFactsSearchResponse<JsonValue>>("/search", {
+  return await provider.getJson<OpenFoodFactsSearchResponse<JsonValue>>("/search.pl", {
     search_terms: query,
+    json: "1",
     page: String(input.page ?? 1),
     page_size: String(input.pageSize ?? 20),
     fields: (input.fields ?? provider.fields).join(",")
-  }) ?? {};
+  }, provider.searchApiBase) ?? {};
+}
+
+function searchApiBaseFor(apiBase: string): string {
+  if (apiBase === OPENFOODFACTS_API_BASE) return OPENFOODFACTS_SEARCH_API_BASE;
+  const url = new URL(apiBase);
+  url.pathname = "/cgi";
+  url.search = "";
+  url.hash = "";
+  return url.toString().replace(/\/$/, "");
 }
 
 function productItems(payload: OpenFoodFactsSearchResponse<JsonValue>): Record<string, JsonValue>[] {
