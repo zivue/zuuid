@@ -11,6 +11,7 @@ test("package root exports the public API", async () => {
   assert.equal(typeof root.GamesDbProvider, "function");
   assert.equal(typeof root.MusicBrainzProvider, "function");
   assert.equal(typeof root.ImdbProvider, "function");
+  assert.equal(typeof root.OpenFoodFactsProvider, "function");
   assert.equal(typeof root.OpenLibraryProvider, "function");
   assert.equal(typeof root.OpenStreetMapProvider, "function");
   assert.equal(typeof root.transformOpenLibraryAuthor, "function");
@@ -66,6 +67,14 @@ test("imdb provider subpath exports title helpers", async () => {
   assert.equal(typeof imdb.transformImdbTv, "function");
 });
 
+test("openfoodfacts provider subpath exports client and transformers", async () => {
+  const openfoodfacts = await import("../dist/providers/openfoodfacts/index.js");
+
+  assert.equal(typeof openfoodfacts.OpenFoodFactsProvider, "function");
+  assert.equal(typeof openfoodfacts.transformOpenFoodFactsProduct, "function");
+  assert.equal(typeof openfoodfacts.searchOpenFoodFactsProducts, "function");
+});
+
 test("openstreetmap provider subpath exports client and transformers", async () => {
   const openstreetmap = await import("../dist/providers/openstreetmap/index.js");
 
@@ -94,6 +103,7 @@ test("category subpaths are importable", async () => {
   const gamesdbPlatform = await import("../dist/providers/gamesdb/platform.js");
   const musicbrainzClient = await import("../dist/providers/musicbrainz/client.js");
   const comicvineClient = await import("../dist/providers/comicvine/client.js");
+  const openfoodfactsClient = await import("../dist/providers/openfoodfacts/client.js");
   const openstreetmapClient = await import("../dist/providers/openstreetmap/client.js");
   const openstreetmapCity = await import("../dist/providers/openstreetmap/city.js");
 
@@ -111,6 +121,7 @@ test("category subpaths are importable", async () => {
   assert.equal(typeof gamesdbPlatform.transformGamesDbPlatform, "function");
   assert.equal(typeof musicbrainzClient.MusicBrainzProvider, "function");
   assert.equal(typeof comicvineClient.ComicVineProvider, "function");
+  assert.equal(typeof openfoodfactsClient.OpenFoodFactsProvider, "function");
   assert.equal(typeof openstreetmapClient.OpenStreetMapProvider, "function");
   assert.equal(typeof openstreetmapCity.transformOpenStreetMapCity, "function");
 });
@@ -126,6 +137,7 @@ test("package self-reference exports match npm entry points", async () => {
   const musicbrainz = await import("@zivue/zuuid/providers/musicbrainz");
   const imdb = await import("@zivue/zuuid/providers/imdb");
   const imdbMovie = await import("@zivue/zuuid/providers/imdb/movie");
+  const openfoodfacts = await import("@zivue/zuuid/providers/openfoodfacts");
   const openstreetmap = await import("@zivue/zuuid/providers/openstreetmap");
   const openlibrary = await import("@zivue/zuuid/providers/openlibrary");
   const author = await import("@zivue/zuuid/providers/openlibrary/author");
@@ -139,6 +151,7 @@ test("package self-reference exports match npm entry points", async () => {
   assert.equal(typeof movie.transformTmdbMovie, "function");
   assert.equal(typeof tv.transformTmdbTv, "function");
   assert.equal(typeof person.transformTmdbPerson, "function");
+  assert.equal(typeof openfoodfacts.OpenFoodFactsProvider, "function");
   assert.equal(typeof openstreetmap.OpenStreetMapProvider, "function");
   assert.equal(typeof openlibrary.OpenLibraryProvider, "function");
   assert.equal(typeof author.transformOpenLibraryAuthor, "function");

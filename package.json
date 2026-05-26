@@ -1,6 +1,6 @@
 {
   "name": "@zivue/zuuid",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "TypeScript helpers for fetching, searching, and transforming Zuuid datasets.",
   "type": "module",
   "license": "MIT",
@@ -159,6 +159,10 @@
     "./providers/openfoodfacts": {
       "types": "./dist/providers/openfoodfacts/index.d.ts",
       "import": "./dist/providers/openfoodfacts/index.js"
+    },
+    "./providers/openfoodfacts/client": {
+      "types": "./dist/providers/openfoodfacts/client.d.ts",
+      "import": "./dist/providers/openfoodfacts/client.js"
     },
     "./providers/openfoodfacts/product": {
       "types": "./dist/providers/openfoodfacts/product.d.ts",

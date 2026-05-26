@@ -138,6 +138,26 @@ test("MusicBrainzProvider fetches and searches release groups", async () => {
   assert.equal(search.results[0]?.weight, 100);
 });
 
+test("MusicBrainzProvider fetches works without invalid artist include", async () => {
+  let requestedUrl;
+  const provider = new MusicBrainzProvider({
+    apiBase: "https://musicbrainz.test/ws/2",
+    userAgent: "zuuid-test/1.0",
+    fetch: async (url) => {
+      requestedUrl = new URL(url.toString());
+      return new Response(JSON.stringify({ id: "0e3d8d4d-7b6b-3f9b-8a45-9f477f86f30f", title: "So What" }), { status: 200 });
+    }
+  });
+
+  await provider.fetchWorkSourceRecord({ id: "0e3d8d4d-7b6b-3f9b-8a45-9f477f86f30f" });
+
+  const includes = requestedUrl.searchParams.get("inc")?.split("+") ?? [];
+  assert.equal(requestedUrl.pathname, "/ws/2/work/0e3d8d4d-7b6b-3f9b-8a45-9f477f86f30f");
+  assert.equal(includes.includes("artists"), false);
+  assert.equal(includes.includes("iswcs"), false);
+  assert.equal(includes.includes("artist-rels"), true);
+});
+
 test("transformMusicBrainzRelease maps release metadata", async () => {
   const source = await createSourceRecord({
     source: { provider: "musicbrainz", category: "release", externalId: "f5093c06-23e3-404f-aeaa-40f72885ee3a" },

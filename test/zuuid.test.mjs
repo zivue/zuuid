@@ -12,6 +12,7 @@ import {
   GamesDbProvider,
   ImdbProvider,
   MusicBrainzProvider,
+  OpenFoodFactsProvider,
   OpenLibraryProvider,
   OpenStreetMapProvider,
   providerNamespace,
@@ -21,6 +22,7 @@ import {
   transformImdbMovie,
   transformImdbTv,
   transformOpenLibraryAuthor,
+  transformOpenFoodFactsProduct,
   transformOpenLibraryBook,
   transformOpenStreetMapPlace,
   transformTmdbMovie,
@@ -705,6 +707,42 @@ test("TmdbProvider searches unified movie, tv, and people results", async () => 
 
 
 
+
+test("OpenFoodFactsProvider fetches and searches products", async () => {
+  const requestedUrls = [];
+  const provider = new OpenFoodFactsProvider({
+    apiBase: "https://off.test/api/v2",
+    fetch: async (url) => {
+      const parsed = new URL(url.toString());
+      requestedUrls.push(parsed);
+      if (parsed.pathname === "/api/v2/product/3017620422003.json") {
+        return new Response(JSON.stringify({ status: 1, code: "3017620422003", product: { code: "3017620422003", product_name: "Nutella", brands: "Ferrero", nutriscore_grade: "e", image_front_url: "https://img.test/nutella.jpg" } }), { status: 200 });
+      }
+      return new Response(JSON.stringify({
+        count: 42,
+        page: 2,
+        page_size: 10,
+        products: [{ code: "12345", product_name: "Oat Bar", brands: "Zivue Foods", nutriscore_grade: "b", image_url: "https://img.test/oat.jpg" }]
+      }), { status: 200 });
+    }
+  });
+
+  const source = await provider.fetchProductSourceRecord({ id: "3017620422003" });
+  const data = source ? await transformOpenFoodFactsProduct(source) : undefined;
+  const search = await provider.searchProducts({ query: "oat", page: 2, pageSize: 10 });
+
+  assert.deepEqual(source?.source, { provider: "openfoodfacts", category: "product", externalId: "3017620422003" });
+  assert.equal(data?.primaryTitle, "Nutella");
+  assert.equal(search.results[0]?.title, "Oat Bar");
+  assert.equal(search.results[0]?.rating, 4);
+  assert.deepEqual(search.pagination, { page: 2, totalPages: 5, totalResults: 42 });
+  assert.equal(requestedUrls[0].pathname, "/api/v2/product/3017620422003.json");
+  assert.equal(requestedUrls[0].searchParams.has("fields"), true);
+  assert.equal(requestedUrls[1].pathname, "/api/v2/search");
+  assert.equal(requestedUrls[1].searchParams.get("search_terms"), "oat");
+  assert.equal(requestedUrls[1].searchParams.get("page_size"), "10");
+});
+
 test("OpenStreetMapProvider fetches and searches Nominatim places", async () => {
   const requestedUrls = [];
   const provider = new OpenStreetMapProvider({
@@ -775,6 +813,29 @@ test("ComicVineProvider fetches and searches comic resources", async () => {
 });
 
 
+
+
+test("createZuuidClient exposes openfoodfacts product facade", async () => {
+  const client = createZuuidClient({
+    providers: {
+      openfoodfacts: {
+        apiBase: "https://off.test/api/v2",
+        fetch: async (url) => {
+          const parsed = new URL(url.toString());
+          if (parsed.pathname.includes("/product/")) return new Response(JSON.stringify({ status: 1, product: { code: "3017620422003", product_name: "Nutella" } }), { status: 200 });
+          return new Response(JSON.stringify({ count: 1, page: 1, page_size: 20, products: [{ code: "12345", product_name: "Oat Bar" }] }), { status: 200 });
+        }
+      }
+    }
+  });
+
+  const source = await client.product.openfoodfacts?.fetchSourceRecord({ id: "3017620422003" });
+  const search = await client.product.openfoodfacts?.search({ query: "oat" });
+
+  assert.deepEqual(source?.source, { provider: "openfoodfacts", category: "product", externalId: "3017620422003" });
+  assert.equal(search?.results[0]?.source.value, "12345");
+  assert.equal(createZuuidClient().product.openfoodfacts, undefined);
+});
 
 test("createZuuidClient exposes openstreetmap visit facades", async () => {
   const client = createZuuidClient({

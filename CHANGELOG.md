@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.6 - 2026-05-26
+
+- Added live OpenFoodFacts product lookup and search support.
+- Added `OpenFoodFactsProvider`, `product.openfoodfacts` client facade, examples, README documentation, and `providers/openfoodfacts/client` export.
+- Fixed MusicBrainz work fetches by removing invalid `artists` and `iswcs` lookup includes while keeping artist relationships.
+
 ## 0.2.5 - 2026-05-25
 
 - Added live OpenStreetMap/Nominatim lookup and search support for cities, countries, places, and venues.

@@ -3,6 +3,7 @@ import {
   GamesDbProvider,
   ImdbProvider,
   MusicBrainzProvider,
+  OpenFoodFactsProvider,
   OpenLibraryProvider,
   OpenStreetMapProvider,
   TmdbProvider,
@@ -17,6 +18,7 @@ import {
   transformMusicBrainzRelease,
   transformMusicBrainzReleaseGroup,
   transformMusicBrainzWork,
+  transformOpenFoodFactsProduct,
   transformOpenLibraryAuthor,
   transformOpenLibraryBook,
   transformOpenStreetMapPlace,
@@ -68,6 +70,7 @@ const gamesdb = configuredGamesDbApiKey ? new GamesDbProvider({ apiKey: configur
 const imdb = new ImdbProvider();
 const musicbrainz = new MusicBrainzProvider();
 const tmdb = bearerToken || apiKey ? new TmdbProvider(bearerToken ? { bearerToken } : { apiKey }) : undefined;
+const openfoodfacts = new OpenFoodFactsProvider();
 const openlibrary = new OpenLibraryProvider();
 const openstreetmap = new OpenStreetMapProvider();
 if (requiresTmdbCredentials(target) && tmdb) {
@@ -122,6 +125,9 @@ try {
   } else if (category === "people" || category === "person") {
     source = await tmdb?.fetchPersonSourceRecord({ id });
     transformed = source ? await transformTmdbPerson(source, tmdb?.transformOptions()) : undefined;
+  } else if (target.provider === "openfoodfacts" && category === "product") {
+    source = await openfoodfacts.fetchProductSourceRecord({ id });
+    transformed = source ? await transformOpenFoodFactsProduct(source) : undefined;
   } else if (target.provider === "openstreetmap") {
     source = await fetchOpenStreetMapSourceRecord(openstreetmap, category, id);
     transformed = source ? await transformOpenStreetMapPlace(source) : undefined;
@@ -191,7 +197,8 @@ function liveExamples() {
     { target: "openstreetmap:city", id: "R406091" },
     { target: "openstreetmap:country", id: "R2978650" },
     { target: "openstreetmap:place", id: "N987654" },
-    { target: "openstreetmap:venue", id: "W123456" }
+    { target: "openstreetmap:venue", id: "W123456" },
+    { target: "openfoodfacts:product", id: "3017620422003" }
   ];
 }
 
@@ -339,6 +346,8 @@ function defaultId(target) {
       return "N987654";
     case "openstreetmap:venue":
       return "W123456";
+    case "openfoodfacts:product":
+      return "3017620422003";
     default:
       return "550";
   }

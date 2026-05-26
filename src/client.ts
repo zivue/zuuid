@@ -19,6 +19,13 @@ import {
   type MusicBrainzSearchInput
 } from "./providers/musicbrainz/index.js";
 import {
+  OpenFoodFactsProvider,
+  transformOpenFoodFactsProduct,
+  type FetchOpenFoodFactsProductInput,
+  type OpenFoodFactsProviderOptions,
+  type OpenFoodFactsSearchInput
+} from "./providers/openfoodfacts/index.js";
+import {
   OpenLibraryProvider,
   transformOpenLibraryAuthor,
   transformOpenLibraryBook,
@@ -68,6 +75,7 @@ export type ProviderConfigs = {
   gamesdb?: GamesDbProviderOptions;
   imdb?: ImdbProviderOptions;
   musicbrainz?: MusicBrainzProviderOptions;
+  openfoodfacts?: OpenFoodFactsProviderOptions;
   openlibrary?: OpenLibraryProviderOptions;
   openstreetmap?: OpenStreetMapProviderOptions;
   tmdb?: TmdbProviderOptions;
@@ -143,6 +151,9 @@ export type ZuuidClient = {
       platform: FetchOnlyProviderClient<FetchGamesDbPlatformInput>;
     };
   };
+  product: {
+    openfoodfacts?: ProviderClient<FetchOpenFoodFactsProductInput, OpenFoodFactsSearchInput>;
+  };
   visit: {
     openstreetmap?: {
       city: ProviderClient<FetchOpenStreetMapInput, OpenStreetMapSearchInput>;
@@ -158,6 +169,7 @@ export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
   const gamesdb = config.providers?.gamesdb ? new GamesDbProvider(config.providers.gamesdb) : undefined;
   const imdb = config.providers?.imdb ? new ImdbProvider(config.providers.imdb) : undefined;
   const musicbrainz = config.providers?.musicbrainz ? new MusicBrainzProvider(config.providers.musicbrainz) : undefined;
+  const openfoodfacts = config.providers?.openfoodfacts ? new OpenFoodFactsProvider(config.providers.openfoodfacts) : undefined;
   const openlibrary = config.providers?.openlibrary ? new OpenLibraryProvider(config.providers.openlibrary) : undefined;
   const openstreetmap = config.providers?.openstreetmap ? new OpenStreetMapProvider(config.providers.openstreetmap) : undefined;
   const tmdb = config.providers?.tmdb ? new TmdbProvider(config.providers.tmdb) : undefined;
@@ -347,6 +359,17 @@ export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
               fetchSourceRecord: (input: FetchGamesDbPlatformInput) => gamesdb.fetchPlatformSourceRecord(input),
               transform: (source: SourceRecord) => transformGamesDbPlatform(source, gamesdb.transformOptions())
             })
+          })
+        : undefined
+    }),
+    product: Object.freeze({
+      openfoodfacts: openfoodfacts
+        ? Object.freeze({
+            fetch: (input: FetchOpenFoodFactsProductInput) => openfoodfacts.fetchProduct(input),
+            fetchSourceRecord: (input: FetchOpenFoodFactsProductInput) => openfoodfacts.fetchProductSourceRecord(input),
+            search: (input: OpenFoodFactsSearchInput) => openfoodfacts.searchProducts(input),
+            searchSourceRecords: (input: OpenFoodFactsSearchInput) => openfoodfacts.searchProductSourceRecords(input),
+            transform: (source: SourceRecord) => transformOpenFoodFactsProduct(source)
           })
         : undefined
     }),

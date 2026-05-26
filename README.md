@@ -4,7 +4,7 @@ Search, fetch, and normalize media metadata from external providers into a share
 
 This package is meant to be used by apps that need provider-backed lookup and transformation, but do not want provider-specific response shapes leaking through the app.
 
-TMDB, Open Library, ComicVine, GamesDB, MusicBrainz, and OpenStreetMap include live search/fetch clients. IMDb includes a fetch-by-ID title-page scraper for movie and TV titles. Additional providers currently expose source-record transformers: you provide the raw provider payload, and this package normalizes it into `ZuuidData`.
+TMDB, Open Library, ComicVine, GamesDB, MusicBrainz, OpenFoodFacts, and OpenStreetMap include live search/fetch clients. IMDb includes a fetch-by-ID title-page scraper for movie and TV titles. Additional providers currently expose source-record transformers: you provide the raw provider payload, and this package normalizes it into `ZuuidData`.
 
 Storage, caching, indexing, review state, object-store keys, and persistence belong in a layer outside this package.
 
@@ -115,7 +115,7 @@ Ratings are normalized to a `0-5` scale when the provider exposes a compatible n
 | GamesDB | platform | no | yes | yes |
 | Jikan | anime, manga, producer, magazine, character, person | no | no | yes |
 | MusicBrainz | release, release-group, recording, artist, label, work | yes | yes | yes |
-| OpenFoodFacts | product | no | no | yes |
+| OpenFoodFacts | product | yes | yes | yes |
 | OpenStreetMap | city, country, place, venue | yes | yes | yes |
 | Podcast / iTunes | podcast | no | no | yes |
 | Setlist.fm | setlist, artist, venue | no | no | yes |
@@ -154,6 +154,28 @@ const game = await zuuid.play.gamesdb?.game.fetch({ id: 17444 });
 
 GamesDB transforms accept both simple flat payloads and native TheGamesDB API envelopes with `data.games`, `data.platforms`, lookup maps, and `boxart` image metadata.
 
+## OpenFoodFacts
+
+`OpenFoodFactsProvider` uses the public Open Food Facts API for product lookup and search. Fetch IDs are product barcodes.
+
+```ts
+import { OpenFoodFactsProvider } from "@zivue/zuuid/providers/openfoodfacts";
+
+const off = new OpenFoodFactsProvider();
+
+const product = await off.fetchProduct({ id: "3017620422003" });
+const products = await off.searchProducts({ query: "Nutella" });
+```
+
+The category-first client exposes OpenFoodFacts under `product.openfoodfacts`:
+
+```ts
+const zuuid = createZuuidClient({ providers: { openfoodfacts: {} } });
+
+const products = await zuuid.product.openfoodfacts?.search({ query: "oat bar" });
+const product = await zuuid.product.openfoodfacts?.fetch({ id: "3017620422003" });
+```
+
 ## OpenStreetMap
 
 `OpenStreetMapProvider` uses the public Nominatim API for OSM lookup and search. It sends a descriptive `User-Agent` by default and lets you override it. Fetch IDs must be OSM object IDs with a type prefix: `N` for node, `W` for way, or `R` for relation.
@@ -175,6 +197,7 @@ The category-first client exposes OpenStreetMap under `visit.openstreetmap`:
 const zuuid = createZuuidClient({ providers: { openstreetmap: {} } });
 
 const places = await zuuid.visit.openstreetmap?.place.search({ query: "Eiffel Tower" });
+const products = await zuuid.product.openfoodfacts?.search({ query: "Nutella" });
 const country = await zuuid.visit.openstreetmap?.country.fetch({ id: "R2978650" });
 ```
 
@@ -281,6 +304,7 @@ const books = await zuuid.read.openlibrary?.search({ query: "The Lord of the Rin
 const authors = await zuuid.people.openlibrary?.search({ query: "J. K. Rowling" });
 const comics = await zuuid.read.comicvine?.volume.search({ query: "Saga" });
 const places = await zuuid.visit.openstreetmap?.place.search({ query: "Eiffel Tower" });
+const products = await zuuid.product.openfoodfacts?.search({ query: "Nutella" });
 ```
 
 Provider methods are also available directly:
@@ -313,6 +337,14 @@ import { OpenStreetMapProvider } from "@zivue/zuuid/providers/openstreetmap";
 const osm = new OpenStreetMapProvider();
 const places = await osm.searchPlaces({ query: "Eiffel Tower" });
 const city = await osm.fetchCity({ id: "R406091" });
+```
+
+```ts
+import { OpenFoodFactsProvider } from "@zivue/zuuid/providers/openfoodfacts";
+
+const off = new OpenFoodFactsProvider();
+const products = await off.searchProducts({ query: "Nutella" });
+const product = await off.fetchProduct({ id: "3017620422003" });
 ```
 
 Search options include pagination and common TMDB filters:
@@ -503,6 +535,7 @@ COMICVINE_API_KEY=... npm run example:search -- comicvine:volume "Saga"
 COMICVINE_API_KEY=... npm run example:search -- comicvine:issue "Saga"
 npm run example:search -- openstreetmap:place "Eiffel Tower"
 npm run example:search -- openstreetmap:venue "Blue Note Oslo"
+npm run example:search -- openfoodfacts:product "Nutella"
 ```
 
 Fetch and transform a selected provider ID:
@@ -529,6 +562,7 @@ npm run example:fetch -- musicbrainz:release-group aaa50249-1e6b-3910-b830-7e2fb
 npm run example:fetch -- musicbrainz:artist 561d854a-6a28-4aa7-8c99-323e6ce46c2a
 npm run example:fetch -- openstreetmap:city R406091
 npm run example:fetch -- openstreetmap:country R2978650
+npm run example:fetch -- openfoodfacts:product 3017620422003
 ```
 
 Transformer-only providers do not have fetch examples. Wrap a real payload from your own provider client in a `SourceRecord` and call the transformer directly.
@@ -562,6 +596,7 @@ Core exports:
 Provider exports:
 
 - `TmdbProvider`
+- `OpenFoodFactsProvider`
 - `OpenLibraryProvider`
 - `ImdbProvider`
 - `ComicVineProvider`

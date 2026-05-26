@@ -1,4 +1,4 @@
-import { ComicVineProvider, createZuuidClient, MusicBrainzProvider, OpenLibraryProvider, OpenStreetMapProvider, TmdbProvider } from "../dist/index.js";
+import { ComicVineProvider, createZuuidClient, MusicBrainzProvider, OpenFoodFactsProvider, OpenLibraryProvider, OpenStreetMapProvider, TmdbProvider } from "../dist/index.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 loadDotEnv();
@@ -31,6 +31,7 @@ const zuuid = createZuuidClient({
     ...(comicvineApiKey ? { comicvine: { apiKey: comicvineApiKey } } : {}),
     ...(credentials ? { tmdb: credentials.config } : {}),
     musicbrainz: {},
+    openfoodfacts: {},
     openlibrary: {},
     openstreetmap: {}
   }
@@ -38,6 +39,7 @@ const zuuid = createZuuidClient({
 const comicvine = comicvineApiKey ? new ComicVineProvider({ apiKey: comicvineApiKey }) : undefined;
 const tmdb = credentials ? new TmdbProvider(credentials.config) : undefined;
 const musicbrainz = new MusicBrainzProvider();
+const openfoodfacts = new OpenFoodFactsProvider();
 const openlibrary = new OpenLibraryProvider();
 const openstreetmap = new OpenStreetMapProvider();
 
@@ -50,7 +52,7 @@ if (requiresTmdbCredentials(category) && credentials?.apiKeyLooksLikeBearerToken
 
 try {
   const search = await searchUnified(zuuid, category, query);
-  const raw = await searchRaw(comicvine, tmdb, musicbrainz, openstreetmap, category, query);
+  const raw = await searchRaw(comicvine, tmdb, musicbrainz, openfoodfacts, openstreetmap, category, query);
 
   writeDebugJson(category, query, search, raw);
   console.log(JSON.stringify(search, null, 2));
@@ -100,6 +102,8 @@ async function searchUnified(client, category, query) {
       return client.visit.openstreetmap?.place.search({ query }) ?? emptySearchResponse();
     case "venue":
       return client.visit.openstreetmap?.venue.search({ query }) ?? emptySearchResponse();
+    case "product":
+      return client.product.openfoodfacts?.search({ query }) ?? emptySearchResponse();
     case "release":
       return client.listen.musicbrainz?.release.search({ query }) ?? emptySearchResponse();
     case "release-group":
@@ -117,7 +121,7 @@ async function searchUnified(client, category, query) {
   }
 }
 
-async function searchRaw(comicvine, tmdb, musicbrainz, openstreetmap, category, query) {
+async function searchRaw(comicvine, tmdb, musicbrainz, openfoodfacts, openstreetmap, category, query) {
   switch (category) {
     case "movie":
       return tmdb?.searchMovieSourceRecords({ query }) ?? emptySearchResponse();
@@ -149,6 +153,8 @@ async function searchRaw(comicvine, tmdb, musicbrainz, openstreetmap, category, 
       return openstreetmap.searchPlaceSourceRecords({ query });
     case "venue":
       return openstreetmap.searchVenueSourceRecords({ query });
+    case "product":
+      return openfoodfacts.searchProductSourceRecords({ query });
     case "release":
       return musicbrainz.searchReleaseSourceRecords({ query });
     case "release-group":
@@ -167,7 +173,7 @@ async function searchRaw(comicvine, tmdb, musicbrainz, openstreetmap, category, 
 }
 
 function writeDebugJson(category, query, results, raw) {
-  const provider = isOpenLibraryCategory(category) ? "openlibrary" : isMusicBrainzCategory(category) ? "musicbrainz" : isComicVineCategory(category) ? "comicvine" : isOpenStreetMapCategory(category) ? "openstreetmap" : "tmdb";
+  const provider = isOpenLibraryCategory(category) ? "openlibrary" : isMusicBrainzCategory(category) ? "musicbrainz" : isComicVineCategory(category) ? "comicvine" : isOpenStreetMapCategory(category) ? "openstreetmap" : category === "product" ? "openfoodfacts" : "tmdb";
   const directory = `data/${provider}/search/${category}`;
   const slug = querySlug(query);
   mkdirSync(directory, { recursive: true });
@@ -247,6 +253,8 @@ function defaultQuery(category) {
       return "Eiffel Tower";
     case "venue":
       return "Blue Note Oslo";
+    case "product":
+      return "Nutella";
     default:
       return "Fight Club";
   }
