@@ -14,7 +14,7 @@ export type FetchComicVineInput = {
 export type ComicVineSearchInput = {
   query: string;
   limit?: number;
-  offset?: number;
+  page?: number;
   fieldList?: string[];
 };
 

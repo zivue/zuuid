@@ -126,7 +126,7 @@ export async function searchComicVineSourceRecords(provider: ComicVineProvider, 
   const comicCategory = requireCategory(category);
   return {
     results: await Promise.all(searchItems(payload).map((item) => createSourceRecord({ source: { provider: COMICVINE_PROVIDER, category, externalId: resultId(item, comicCategory) ?? "" }, payload: item as JsonValue }))),
-    pagination: pagination(payload)
+    pagination: pagination(payload, input.page)
   };
 }
 
@@ -156,7 +156,7 @@ export async function searchComicVine(provider: ComicVineProvider, category: str
       source: { source: COMICVINE_PROVIDER, category, value: externalId }
     });
   }
-  return { results, pagination: pagination(payload) };
+  return { results, pagination: pagination(payload, input.page) };
 }
 
 async function searchPayload(provider: ComicVineProvider, category: string, input: ComicVineSearchInput): Promise<ComicVineApiResponse<JsonValue[]>> {
@@ -167,7 +167,7 @@ async function searchPayload(provider: ComicVineProvider, category: string, inpu
     query,
     resources: CATEGORY_CONFIG[comicCategory].searchResource,
     limit: String(input.limit ?? 25),
-    offset: String(input.offset ?? 0),
+    page: String(input.page ?? 1),
     ...(input.fieldList?.length ? { field_list: input.fieldList.join(",") } : {})
   });
 }
@@ -176,11 +176,10 @@ function searchItems(payload: ComicVineApiResponse<JsonValue[]>): Record<string,
   return Array.isArray(payload.results) ? payload.results.filter(isObject) : [];
 }
 
-function pagination(payload: ComicVineApiResponse<JsonValue[]>) {
+function pagination(payload: ComicVineApiResponse<JsonValue[]>, requestedPage = 1) {
   const total = payload.number_of_total_results ?? searchItems(payload).length;
-  const offset = payload.offset ?? 0;
   const limit = payload.limit ?? payload.number_of_page_results ?? searchItems(payload).length;
-  return { page: limit > 0 ? Math.floor(offset / limit) + 1 : 1, totalPages: limit > 0 ? Math.ceil(total / limit) : 0, totalResults: total };
+  return { page: requestedPage, totalPages: limit > 0 ? Math.ceil(total / limit) : 0, totalResults: total };
 }
 
 function requireCategory(category: string): ComicVineCategory {

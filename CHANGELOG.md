@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.9 - 2026-08-26
+
+- Fixed ComicVine search pagination to send the API's `page` parameter instead of the unsupported `offset` parameter.
+
 ## 0.2.8 - 2026-05-27
 
 - Added `primary_type` details to MusicBrainz work transforms so forms such as suite and opera are directly accessible.

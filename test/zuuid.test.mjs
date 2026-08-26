@@ -793,7 +793,7 @@ test("ComicVineProvider fetches and searches comic resources", async () => {
       return new Response(JSON.stringify({
         status_code: 1,
         limit: 10,
-        offset: 10,
+        offset: 0,
         number_of_page_results: 1,
         number_of_total_results: 25,
         results: [{ id: 1, name: "Saga", start_year: "2012", image: { super_url: "https://img.test/saga.jpg" }, publisher: { id: 10, name: "Image" } }]
@@ -802,7 +802,7 @@ test("ComicVineProvider fetches and searches comic resources", async () => {
   });
 
   const issue = await provider.fetchIssueSourceRecord({ id: "4000-101" });
-  const volumes = await provider.searchVolumes({ query: "Saga", limit: 10, offset: 10 });
+  const volumes = await provider.searchVolumes({ query: "Saga", limit: 10, page: 2 });
   const transformed = issue ? await transformComicVine(issue) : undefined;
 
   assert.deepEqual(issue?.source, { provider: "comicvine", category: "issue", externalId: "101" });
@@ -815,6 +815,8 @@ test("ComicVineProvider fetches and searches comic resources", async () => {
   assert.equal(requestedUrls[0].searchParams.get("format"), "json");
   assert.equal(requestedUrls[1].pathname, "/api/search/");
   assert.equal(requestedUrls[1].searchParams.get("resources"), "volume");
+  assert.equal(requestedUrls[1].searchParams.get("page"), "2");
+  assert.equal(requestedUrls[1].searchParams.has("offset"), false);
 });
 
 
