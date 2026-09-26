@@ -68,6 +68,13 @@ import {
   type FetchImdbTitleInput,
   type ImdbProviderOptions
 } from "./providers/imdb/index.js";
+import {
+  TicketmasterProvider,
+  transformTicketmasterEvent,
+  type FetchTicketmasterEventInput,
+  type TicketmasterProviderOptions,
+  type TicketmasterSearchInput
+} from "./providers/ticketmaster/index.js";
 import type { SourceRecord } from "./source.js";
 
 export type ProviderConfigs = {
@@ -78,6 +85,7 @@ export type ProviderConfigs = {
   openfoodfacts?: OpenFoodFactsProviderOptions;
   openlibrary?: OpenLibraryProviderOptions;
   openstreetmap?: OpenStreetMapProviderOptions;
+  ticketmaster?: TicketmasterProviderOptions;
   tmdb?: TmdbProviderOptions;
 };
 
@@ -162,6 +170,9 @@ export type ZuuidClient = {
       venue: ProviderClient<FetchOpenStreetMapInput, OpenStreetMapSearchInput>;
     };
   };
+  event: {
+    ticketmaster?: ProviderClient<FetchTicketmasterEventInput, TicketmasterSearchInput>;
+  };
 };
 
 export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
@@ -172,6 +183,7 @@ export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
   const openfoodfacts = config.providers?.openfoodfacts ? new OpenFoodFactsProvider(config.providers.openfoodfacts) : undefined;
   const openlibrary = config.providers?.openlibrary ? new OpenLibraryProvider(config.providers.openlibrary) : undefined;
   const openstreetmap = config.providers?.openstreetmap ? new OpenStreetMapProvider(config.providers.openstreetmap) : undefined;
+  const ticketmaster = config.providers?.ticketmaster ? new TicketmasterProvider(config.providers.ticketmaster) : undefined;
   const tmdb = config.providers?.tmdb ? new TmdbProvider(config.providers.tmdb) : undefined;
 
   return Object.freeze({
@@ -404,6 +416,17 @@ export function createZuuidClient(config: ZuuidClientConfig = {}): ZuuidClient {
               searchSourceRecords: (input: OpenStreetMapSearchInput) => openstreetmap.searchVenueSourceRecords(input),
               transform: (source: SourceRecord) => transformOpenStreetMapPlace(source)
             })
+          })
+        : undefined
+    }),
+    event: Object.freeze({
+      ticketmaster: ticketmaster
+        ? Object.freeze({
+            fetch: (input: FetchTicketmasterEventInput) => ticketmaster.fetchEvent(input),
+            fetchSourceRecord: (input: FetchTicketmasterEventInput) => ticketmaster.fetchEventSourceRecord(input),
+            search: (input: TicketmasterSearchInput) => ticketmaster.searchEvents(input),
+            searchSourceRecords: (input: TicketmasterSearchInput) => ticketmaster.searchEventSourceRecords(input),
+            transform: (source: SourceRecord) => transformTicketmasterEvent(source)
           })
         : undefined
     })

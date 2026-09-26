@@ -73,7 +73,7 @@ export async function searchGamesDbGames(
       rating: normalizeRating(rawRating, 0, 10) ?? null,
       weight: null,
       relationType: null,
-      attribute: null,
+      attribute: lookupName(payload, "platforms", game.platform) ?? null,
       order: null,
       source: { source: GAMESDB_PROVIDER, category: GAMESDB_GAME_CATEGORY, value: id }
     });

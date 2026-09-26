@@ -89,8 +89,8 @@ test("GamesDbProvider fetches and searches games", async () => {
     fetch: async (url) => {
       const parsed = new URL(url.toString());
       requested.push(parsed);
-      const game = { id: 17444, game_title: "Chrono Trigger", release_date: "1995-08-22", rating: 9.6 };
-      return new Response(JSON.stringify({ data: { games: [game], boxart: { base_url: { original: "https://cdn.test" }, data: { "17444": [{ filename: "front.jpg", side: "front", type: "boxart" }] } } }, pages: { current: 1, total: 1 } }), {
+      const game = { id: 17444, game_title: "Chrono Trigger", release_date: "1995-08-22", rating: 9.6, platform: 6 };
+      return new Response(JSON.stringify({ data: { games: [game], platforms: { "6": { id: 6, name: "Super Nintendo" } }, boxart: { base_url: { original: "https://cdn.test" }, data: { "17444": [{ filename: "front.jpg", side: "front", type: "boxart" }] } } }, pages: { current: 1, total: 1 } }), {
         status: 200,
         headers: { "content-type": "application/json" }
       });
@@ -106,6 +106,7 @@ test("GamesDbProvider fetches and searches games", async () => {
   assert.deepEqual(source?.source, { provider: "gamesdb", category: "game", externalId: "17444" });
   assert.equal(search.results[0]?.title, "Chrono Trigger");
   assert.equal(search.results[0]?.cover, "https://cdn.test/front.jpg");
+  assert.equal(search.results[0]?.attribute, "Super Nintendo");
 });
 
 
@@ -316,7 +317,7 @@ test("transformOpenStreetMapPlace maps city details", async () => {
       display_name: "Oslo, Norway",
       importance: 0.72,
       address: { city: "Oslo", country: "Norway", country_code: "no" },
-      extratags: { wikidata: "Q585" },
+      extratags: { wikidata: "Q585", website: "https://www.oslo.kommune.no", phone: "+47 21 80 21 80", opening_hours: "Mo-Fr 08:00-16:00" },
       namedetails: { "name:ja": "オスロ" }
     },
     observedAt
@@ -327,6 +328,9 @@ test("transformOpenStreetMapPlace maps city details", async () => {
   assert.equal(data.details.some((detail) => detail.key === "provider_rating" && detail.value === 0.72), true);
   assert.equal(data.aliases.some((alias) => alias.value === "オスロ"), true);
   assert.equal(data.externalIds.some((id) => id.source === "wikidata"), true);
+  assert.equal(data.details.some((detail) => detail.key === "website" && detail.value === "https://www.oslo.kommune.no"), true);
+  assert.equal(data.details.some((detail) => detail.key === "phone" && detail.value === "+47 21 80 21 80"), true);
+  assert.equal(data.details.some((detail) => detail.key === "opening_hours" && detail.value === "Mo-Fr 08:00-16:00"), true);
 });
 
 test("transformPodcast and transformWgerExercise map listen and exercise sources", async () => {
@@ -374,7 +378,8 @@ test("transformComicVine, transformTicketmaster, and transformSetlistFm map link
       id: "e1",
       name: "Miles Davis Tribute",
       dates: { start: { localDate: "2026-06-01" } },
-      _embedded: { venues: [{ id: "v1", name: "Blue Note" }] },
+      priceRanges: [{ min: 45, max: 80, currency: "USD" }],
+      _embedded: { venues: [{ id: "v1", name: "Blue Note", address: { line1: "131 W 3rd St" }, city: { name: "New York" }, location: { latitude: "40.73", longitude: "-74.00" } }] },
       classifications: [{ genre: { name: "Jazz" } }]
     },
     observedAt
@@ -382,6 +387,8 @@ test("transformComicVine, transformTicketmaster, and transformSetlistFm map link
   const ticketmaster = await transformTicketmaster(event);
   assert.equal(ticketmaster.primaryDate, "2026-06-01");
   assert.equal(ticketmaster.relations.some((relation) => relation.category === "venue"), true);
+  assert.equal(ticketmaster.details.some((detail) => detail.key === "city" && detail.value === "New York"), true);
+  assert.equal(ticketmaster.details.some((detail) => detail.key === "price" && detail.value === "45–80 USD"), true);
 
   const setlist = await createSourceRecord({
     source: { provider: "setlistfm", category: "setlist", externalId: "s1" },

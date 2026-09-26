@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.10 - 2026-09-26
+
+- Added platform names to GamesDB search results for richer game discovery cards.
+- Preserved useful OpenStreetMap website, phone, opening-hours, and operator metadata.
+- Added a Ticketmaster Discovery API client for upcoming event search and detail lookup.
+
 ## 0.2.9 - 2026-08-26
 
 - Fixed ComicVine search pagination to send the API's `page` parameter instead of the unsupported `offset` parameter.

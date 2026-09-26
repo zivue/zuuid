@@ -32,7 +32,14 @@ export async function transformOpenStreetMapPlace(source: SourceRecord): Promise
   addDetail(data, OPENSTREETMAP_PROVIDER, "type", stringField(payload, "type"));
   const bbox = arrayField(payload, "boundingbox").filter((value): value is string => typeof value === "string").join(",");
   addDetail(data, OPENSTREETMAP_PROVIDER, "bounding_box", bbox || undefined);
-  for (const key of ["population", "wikidata", "wikipedia"]) addDetail(data, OPENSTREETMAP_PROVIDER, key, nestedString(payload, ["extratags", key]));
+  for (const key of ["population", "wikidata", "wikipedia", "opening_hours", "operator"]) {
+    addDetail(data, OPENSTREETMAP_PROVIDER, key, nestedString(payload, ["extratags", key]));
+  }
+  addDetail(data, OPENSTREETMAP_PROVIDER, "website", nestedString(payload, ["extratags", "website"])
+    ?? nestedString(payload, ["extratags", "contact:website"])
+    ?? nestedString(payload, ["extratags", "url"]));
+  addDetail(data, OPENSTREETMAP_PROVIDER, "phone", nestedString(payload, ["extratags", "phone"])
+    ?? nestedString(payload, ["extratags", "contact:phone"]));
   const wikidata = nestedString(payload, ["extratags", "wikidata"]);
   if (wikidata) data.externalIds.push({ source: "wikidata", category: source.source.category, value: wikidata });
   addTag(data, "location"); addTag(data, "place"); addTag(data, source.source.category); addTag(data, nestedString(payload, ["address", "country_code"]));

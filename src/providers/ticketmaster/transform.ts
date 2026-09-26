@@ -17,10 +17,40 @@ export async function transformTicketmasterEvent(source: SourceRecord): Promise<
   data.primaryDate = datePrefix(nestedString(payload, ["dates", "start", "localDate"]));
   addDescription(data, TICKETMASTER_PROVIDER, stringField(payload, "info") ?? stringField(payload, "pleaseNote") ?? stringField(payload, "please_note"));
   for (const [key, value] of [["type", stringField(payload, "type")], ["locale", stringField(payload, "locale")], ["source_url", stringField(payload, "url")], ["status", nestedString(payload, ["dates", "status", "code"])], ["event_date", nestedString(payload, ["dates", "start", "localDate"])], ["event_time", nestedString(payload, ["dates", "start", "localTime"])], ["timezone", nestedString(payload, ["dates", "timezone"])]] as const) addDetail(data, TICKETMASTER_PROVIDER, key, value);
+  const venue = embeddedItem(payload, "venues");
+  for (const [key, value] of [
+    ["venue", stringField(venue, "name")],
+    ["address", nestedString(venue, ["address", "line1"])],
+    ["postal_code", stringField(venue, "postalCode")],
+    ["city", nestedString(venue, ["city", "name"])],
+    ["state", nestedString(venue, ["state", "name"])],
+    ["country", nestedString(venue, ["country", "name"])],
+    ["latitude", nestedString(venue, ["location", "latitude"])],
+    ["longitude", nestedString(venue, ["location", "longitude"])],
+  ] as const) addDetail(data, TICKETMASTER_PROVIDER, key, value);
+  const price = priceSummary(payload);
+  addDetail(data, TICKETMASTER_PROVIDER, "price", price);
   addImages(data, payload); addClassifications(data, payload);
   await addEmbeddedRelations(data, payload, "venues", TICKETMASTER_VENUE_CATEGORY);
   await addEmbeddedRelations(data, payload, "attractions", TICKETMASTER_ATTRACTION_CATEGORY);
   return finalizeData(data, source);
+}
+
+function embeddedItem(payload: Record<string, unknown>, key: string): Record<string, never> {
+  const embedded = payload._embedded;
+  if (!embedded || typeof embedded !== "object" || Array.isArray(embedded)) return {};
+  const item = arrayField(embedded as never, key)[0];
+  return item && typeof item === "object" && !Array.isArray(item) ? item as Record<string, never> : {};
+}
+
+function priceSummary(payload: Record<string, unknown>): string | undefined {
+  const range = arrayField(payload as never, "priceRanges")[0];
+  if (!range || typeof range !== "object" || Array.isArray(range)) return undefined;
+  const minimum = valueAsString((range as Record<string, never>).min);
+  const maximum = valueAsString((range as Record<string, never>).max);
+  const currency = stringField(range as never, "currency");
+  if (!minimum && !maximum) return undefined;
+  return `${[minimum, maximum].filter((value, index, values) => value && values.indexOf(value) === index).join("–")}${currency ? ` ${currency}` : ""}`;
 }
 
 export async function transformTicketmasterAttraction(source: SourceRecord): Promise<ZuuidData> {

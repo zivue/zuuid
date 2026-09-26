@@ -17,6 +17,7 @@ import {
   OpenStreetMapProvider,
   providerNamespace,
   providerZuuid,
+  TicketmasterProvider,
   TmdbProvider,
   transformComicVine,
   transformImdbMovie,
@@ -746,6 +747,40 @@ test("OpenFoodFactsProvider fetches and searches products", async () => {
   assert.equal(requestedUrls[1].searchParams.get("search_terms"), "oat");
   assert.equal(requestedUrls[1].searchParams.get("json"), "1");
   assert.equal(requestedUrls[1].searchParams.get("page_size"), "10");
+});
+
+test("TicketmasterProvider fetches and searches upcoming events", async () => {
+  const requestedUrls = [];
+  const event = {
+    id: "Z698xZ2qZa7G4",
+    name: "Björk Live",
+    url: "https://ticketmaster.test/bjork",
+    dates: { start: { localDate: "2027-03-12", localTime: "20:00:00" }, status: { code: "onsale" } },
+    images: [{ url: "https://img.test/small.jpg", width: 320 }, { url: "https://img.test/large.jpg", width: 1024 }],
+    _embedded: { venues: [{ id: "v1", name: "Oslo Spektrum", city: { name: "Oslo" }, country: { name: "Norway" }, location: { latitude: "59.91", longitude: "10.75" } }] },
+  };
+  const provider = new TicketmasterProvider({
+    apiKey: "tm-key",
+    apiBase: "https://ticketmaster.test/discovery/v2",
+    fetch: async (url) => {
+      const parsed = new URL(url.toString());
+      requestedUrls.push(parsed);
+      if (parsed.pathname.endsWith("/events/Z698xZ2qZa7G4.json")) return new Response(JSON.stringify(event), { status: 200 });
+      return new Response(JSON.stringify({ _embedded: { events: [event] }, page: { number: 1, totalPages: 3, totalElements: 42 } }), { status: 200 });
+    },
+  });
+
+  const source = await provider.fetchEventSourceRecord({ id: "Z698xZ2qZa7G4" });
+  const search = await provider.searchEvents({ query: "Björk", page: 2, pageSize: 20 });
+
+  assert.deepEqual(source?.source, { provider: "ticketmaster", category: "event", externalId: "Z698xZ2qZa7G4" });
+  assert.equal(search.results[0]?.kind, "event");
+  assert.equal(search.results[0]?.cover, "https://img.test/large.jpg");
+  assert.equal(search.results[0]?.attribute, "Oslo Spektrum · Oslo");
+  assert.deepEqual(search.pagination, { page: 2, totalPages: 3, totalResults: 42 });
+  assert.equal(requestedUrls[0].searchParams.get("apikey"), "tm-key");
+  assert.equal(requestedUrls[1].searchParams.get("page"), "1");
+  assert.equal(requestedUrls[1].searchParams.get("sort"), "date,asc");
 });
 
 test("OpenStreetMapProvider fetches and searches Nominatim places", async () => {
