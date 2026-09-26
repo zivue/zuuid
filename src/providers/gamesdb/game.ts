@@ -238,7 +238,7 @@ function lookupName(envelope: Record<string, JsonValue>, key: string, id: JsonVa
   const include = objectPayload(envelope.include ?? {});
   const includeKey = key === "platforms" ? "platform" : key;
   const includeEntry = objectPayload(include[includeKey] ?? {});
-  const values = includeEntry.data ?? data[key] ?? envelope[key];
+  const values = includeEntry.data ?? (Object.keys(includeEntry).length ? includeEntry : undefined) ?? data[key] ?? envelope[key];
   if (Array.isArray(values)) return values.filter(isObject).find((item) => valueAsString(item.id) === normalizedId)?.name as string | undefined;
   if (isObject(values)) {
     const item = values[normalizedId];

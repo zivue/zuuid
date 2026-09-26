@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.11 - 2026-09-27
+
+- Fixed GamesDB platform-name lookup for the live API's `include.platform` response shape.
+
 ## 0.2.10 - 2026-09-26
 
 - Added platform names to GamesDB search results for richer game discovery cards.
