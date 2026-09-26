@@ -90,7 +90,7 @@ test("GamesDbProvider fetches and searches games", async () => {
       const parsed = new URL(url.toString());
       requested.push(parsed);
       const game = { id: 17444, game_title: "Chrono Trigger", release_date: "1995-08-22", rating: 9.6, platform: 6 };
-      return new Response(JSON.stringify({ data: { games: [game], boxart: { base_url: { original: "https://cdn.test" }, data: { "17444": [{ filename: "front.jpg", side: "front", type: "boxart" }] } } }, include: { platform: { "6": { id: 6, name: "Super Nintendo" } } }, pages: { current: 1, total: 1 } }), {
+      return new Response(JSON.stringify({ data: { games: [game], boxart: { base_url: { original: "https://cdn.test" }, data: { "17444": [{ filename: "front.jpg", side: "front", type: "boxart" }] } } }, include: { platform: { "6": { id: 6, name: "Super Nintendo" } } }, pages: { previous: null, current: "https://api.thegamesdb.test/v1/Games/ByGameName?page=1", next: "https://api.thegamesdb.test/v1/Games/ByGameName?page=2" } }), {
         status: 200,
         headers: { "content-type": "application/json" }
       });
@@ -107,6 +107,8 @@ test("GamesDbProvider fetches and searches games", async () => {
   assert.equal(search.results[0]?.title, "Chrono Trigger");
   assert.equal(search.results[0]?.cover, "https://cdn.test/front.jpg");
   assert.equal(search.results[0]?.attribute, "Super Nintendo");
+  assert.equal(search.pagination.page, 1);
+  assert.equal(search.pagination.totalPages, 2);
 });
 
 

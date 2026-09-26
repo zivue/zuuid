@@ -141,9 +141,21 @@ function gamesDbNumericId(value: string | number, label: string): string {
 
 function gamesDbPagination(payload: Record<string, JsonValue>, resultCount: number) {
   const pages = objectPayload(payload.pages ?? {});
-  const page = numberField(pages, "current") ?? numberField(pages, "previous") ?? 1;
-  const totalPages = numberField(pages, "total") ?? (resultCount ? 1 : 0);
+  const previousPage = pageNumberFromLink(pages.previous);
+  const nextPage = pageNumberFromLink(pages.next);
+  const page = numberField(pages, "current") ?? pageNumberFromLink(pages.current) ?? (previousPage ? previousPage + 1 : 1);
+  const totalPages = numberField(pages, "total") ?? nextPage ?? (resultCount ? page : 0);
   return { page, totalPages, totalResults: resultCount };
+}
+
+function pageNumberFromLink(value: JsonValue | undefined): number | undefined {
+  if (typeof value !== "string") return undefined;
+  try {
+    const page = Number(new URL(value).searchParams.get("page"));
+    return Number.isSafeInteger(page) && page > 0 ? page : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function gameFromPayload(envelope: Record<string, JsonValue>, externalId: string): Record<string, JsonValue> {
