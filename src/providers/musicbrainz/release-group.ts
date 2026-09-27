@@ -2,7 +2,7 @@ import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
 import { addDetail, addMedia, arrayField, baseDataFromSource, finalizeData, stringField, valueAsString } from "../common.js";
 import { MUSICBRAINZ_PROVIDER, MUSICBRAINZ_RELEASE_GROUP_CATEGORY, MUSICBRAINZ_RELEASE_GROUP_COVER_ART_BASE_URL } from "./constants.js";
-import { addArtistCreditDetail, addMusicBrainzDescription, addMusicBrainzTags, musicBrainzId, musicBrainzPayload, requireMusicBrainzTitle } from "./helpers.js";
+import { addArtistCreditDetail, addArtistCreditRelations, addMusicBrainzDescription, addMusicBrainzTags, musicBrainzId, musicBrainzPayload, requireMusicBrainzTitle } from "./helpers.js";
 
 export type MusicBrainzReleaseGroupTransformOptions = {
   coverArtBaseUrl?: string | null;
@@ -28,6 +28,7 @@ export async function transformMusicBrainzReleaseGroup(
   addDetail(data, MUSICBRAINZ_PROVIDER, "secondary_types", arrayField(payload, "secondary-types").filter((value): value is string => typeof value === "string"));
   addDetail(data, MUSICBRAINZ_PROVIDER, "release_count", valueAsString(payload["release-count"]));
   addArtistCreditDetail(data, payload);
+  await addArtistCreditRelations(data, payload);
   addMusicBrainzDescription(data, payload);
   addMusicBrainzTags(data, payload);
   const baseUrl = options.coverArtBaseUrl === undefined ? MUSICBRAINZ_RELEASE_GROUP_COVER_ART_BASE_URL : options.coverArtBaseUrl;

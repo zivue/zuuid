@@ -1,8 +1,8 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
-import { addDetail, addRelation, arrayField, baseDataFromSource, finalizeData, stringField, valueAsString } from "../common.js";
-import { MUSICBRAINZ_ARTIST_CATEGORY, MUSICBRAINZ_PROVIDER, MUSICBRAINZ_RECORDING_CATEGORY } from "./constants.js";
-import { addArtistCreditDetail, addMusicBrainzDescription, addMusicBrainzTags, musicBrainzId, musicBrainzPayload, requireMusicBrainzTitle } from "./helpers.js";
+import { addDetail, arrayField, baseDataFromSource, finalizeData, stringField, valueAsString } from "../common.js";
+import { MUSICBRAINZ_PROVIDER, MUSICBRAINZ_RECORDING_CATEGORY } from "./constants.js";
+import { addArtistCreditDetail, addArtistCreditRelations, addMusicBrainzDescription, addMusicBrainzTags, musicBrainzId, musicBrainzPayload, requireMusicBrainzTitle } from "./helpers.js";
 
 export async function transformMusicBrainzRecording(source: SourceRecord): Promise<ZuuidData> {
   if (source.source.provider !== MUSICBRAINZ_PROVIDER || source.source.category !== MUSICBRAINZ_RECORDING_CATEGORY) {
@@ -26,15 +26,4 @@ export async function transformMusicBrainzRecording(source: SourceRecord): Promi
   addMusicBrainzDescription(data, payload);
   addMusicBrainzTags(data, payload);
   return finalizeData(data, source);
-}
-
-async function addArtistCreditRelations(data: ZuuidData, payload: Record<string, unknown>): Promise<void> {
-  let index = 0;
-  for (const credit of arrayField(payload as never, "artist-credit")) {
-    if (!credit || typeof credit !== "object" || Array.isArray(credit)) continue;
-    const artist = (credit as Record<string, unknown>).artist;
-    if (!artist || typeof artist !== "object" || Array.isArray(artist)) continue;
-    await addRelation(data, MUSICBRAINZ_PROVIDER, MUSICBRAINZ_ARTIST_CATEGORY, stringField(artist as never, "id"), "performed_by", stringField(artist as never, "name"), { order: index });
-    index += 1;
-  }
 }

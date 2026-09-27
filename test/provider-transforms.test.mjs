@@ -161,6 +161,32 @@ test("MusicBrainzProvider fetches works without invalid artist include", async (
   assert.equal(includes.includes("artist-rels"), true);
 });
 
+test("MusicBrainzProvider fetches artist discographies", async () => {
+  let requestedUrl;
+  const provider = new MusicBrainzProvider({
+    apiBase: "https://musicbrainz.test/ws/2",
+    userAgent: "zuuid-test/1.0",
+    fetch: async (url) => {
+      requestedUrl = new URL(url.toString());
+      return new Response(JSON.stringify({
+        id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a",
+        name: "Miles Davis",
+        "release-groups": [{
+          id: "aaa50249-1e6b-3910-b830-7e2fb622a8c4",
+          title: "Kind of Blue",
+          "first-release-date": "1959-08-17",
+          "primary-type": "Album",
+        }],
+      }), { status: 200 });
+    },
+  });
+
+  const data = await provider.fetchArtist({ id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a" });
+
+  assert.equal(requestedUrl.searchParams.get("inc")?.split("+").includes("release-groups"), true);
+  assert.equal(data?.relations.some((relation) => relation.title === "Kind of Blue" && relation.relationType === "released"), true);
+});
+
 test("transformMusicBrainzRelease maps release metadata", async () => {
   const source = await createSourceRecord({
     source: { provider: "musicbrainz", category: "release", externalId: "f5093c06-23e3-404f-aeaa-40f72885ee3a" },
@@ -169,7 +195,7 @@ test("transformMusicBrainzRelease maps release metadata", async () => {
       title: "Kind of Blue",
       date: "1959-08-17",
       barcode: "074646493528",
-      "artist-credit": [{ name: "Miles Davis" }],
+      "artist-credit": [{ name: "Miles Davis", artist: { id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a", name: "Miles Davis" } }],
       "label-info": [{ label: { name: "Columbia" } }],
       "release-group": { id: "aaa50249-1e6b-3910-b830-7e2fb622a8c4" },
       genres: [{ name: "Modal Jazz" }],
@@ -183,6 +209,7 @@ test("transformMusicBrainzRelease maps release metadata", async () => {
   assert.equal(data.primaryDate, "1959-08-17");
   assert.equal(data.cover.includes("coverartarchive.org"), true);
   assert.equal(data.externalIds.some((id) => id.category === "release_group"), true);
+  assert.equal(data.relations.some((relation) => relation.title === "Miles Davis" && relation.relationType === "performed_by"), true);
 });
 
 test("transformMusicBrainz additional entity types", async () => {
@@ -193,12 +220,14 @@ test("transformMusicBrainz additional entity types", async () => {
       title: "Kind of Blue",
       "first-release-date": "1959-08-17",
       "primary-type": "Album",
-      "artist-credit": [{ name: "Miles Davis" }],
+      "artist-credit": [{ name: "Miles Davis", artist: { id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a", name: "Miles Davis" } }],
       genres: [{ name: "Modal Jazz" }]
     },
     observedAt
   });
-  assert.equal((await transformMusicBrainzReleaseGroup(releaseGroup, { coverArtBaseUrl: null })).category, "release_group");
+  const releaseGroupData = await transformMusicBrainzReleaseGroup(releaseGroup, { coverArtBaseUrl: null });
+  assert.equal(releaseGroupData.category, "release_group");
+  assert.equal(releaseGroupData.relations.some((relation) => relation.title === "Miles Davis" && relation.relationType === "performed_by"), true);
 
   const recording = await createSourceRecord({
     source: { provider: "musicbrainz", category: "recording", externalId: "0b5d8c0f-4975-4e44-9e67-0a5f1b5939f6" },
@@ -218,10 +247,24 @@ test("transformMusicBrainz additional entity types", async () => {
 
   const artist = await createSourceRecord({
     source: { provider: "musicbrainz", category: "artist", externalId: "561d854a-6a28-4aa7-8c99-323e6ce46c2a" },
-    payload: { id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a", name: "Miles Davis", "sort-name": "Davis, Miles", "life-span": { begin: "1926-05-26" } },
+    payload: {
+      id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a",
+      name: "Miles Davis",
+      "sort-name": "Davis, Miles",
+      "life-span": { begin: "1926-05-26" },
+      "release-groups": [{
+        id: "aaa50249-1e6b-3910-b830-7e2fb622a8c4",
+        title: "Kind of Blue",
+        "first-release-date": "1959-08-17",
+        "primary-type": "Album",
+      }],
+    },
     observedAt
   });
-  assert.equal((await transformMusicBrainzArtist(artist)).kind, "people");
+  const artistData = await transformMusicBrainzArtist(artist);
+  assert.equal(artistData.kind, "people");
+  assert.equal(artistData.relations.some((relation) => relation.title === "Kind of Blue" && relation.relationType === "released"), true);
+  assert.equal(artistData.relations.find((relation) => relation.title === "Kind of Blue")?.cover.includes("coverartarchive.org"), true);
 
   const label = await createSourceRecord({
     source: { provider: "musicbrainz", category: "label", externalId: "a24c1f3d-2e21-487b-b15e-3b419b6483bc" },

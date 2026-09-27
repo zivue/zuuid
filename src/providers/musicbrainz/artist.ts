@@ -1,7 +1,8 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
-import { addDetail, addTag, baseDataFromSource, finalizeData, nestedString, stringField } from "../common.js";
-import { MUSICBRAINZ_ARTIST_CATEGORY, MUSICBRAINZ_PROVIDER } from "./constants.js";
+import type { JsonValue } from "../../types.js";
+import { addDetail, addRelation, addTag, arrayField, baseDataFromSource, finalizeData, nestedString, objectPayload, stringField } from "../common.js";
+import { MUSICBRAINZ_ARTIST_CATEGORY, MUSICBRAINZ_PROVIDER, MUSICBRAINZ_RELEASE_GROUP_CATEGORY, MUSICBRAINZ_RELEASE_GROUP_COVER_ART_BASE_URL } from "./constants.js";
 import { addAreaDetails, addLifeSpanDetails, addMusicBrainzAliases, addMusicBrainzDescription, addMusicBrainzTags, musicBrainzId, musicBrainzPayload, requireMusicBrainzTitle } from "./helpers.js";
 
 export async function transformMusicBrainzArtist(source: SourceRecord): Promise<ZuuidData> {
@@ -25,6 +26,34 @@ export async function transformMusicBrainzArtist(source: SourceRecord): Promise<
   addLifeSpanDetails(data, payload);
   addAreaDetails(data, payload);
   addMusicBrainzTags(data, payload);
+  await addReleaseGroupRelations(data, payload);
   addTag(data, "artist");
   return finalizeData(data, source);
+}
+
+async function addReleaseGroupRelations(data: ZuuidData, payload: Record<string, JsonValue>): Promise<void> {
+  let index = 0;
+  for (const value of arrayField(payload, "release-groups")) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const releaseGroup = objectPayload(value);
+    const externalId = stringField(releaseGroup, "id");
+    const primaryType = stringField(releaseGroup, "primary-type");
+    const secondaryTypes = arrayField(releaseGroup, "secondary-types")
+      .filter((type): type is string => typeof type === "string");
+    await addRelation(
+      data,
+      MUSICBRAINZ_PROVIDER,
+      MUSICBRAINZ_RELEASE_GROUP_CATEGORY,
+      externalId,
+      "released",
+      stringField(releaseGroup, "title"),
+      {
+        date: stringField(releaseGroup, "first-release-date") ?? null,
+        cover: externalId ? `${MUSICBRAINZ_RELEASE_GROUP_COVER_ART_BASE_URL}/${externalId}/front` : null,
+        attribute: [primaryType, ...secondaryTypes].filter(Boolean).join(" · ") || null,
+        order: index,
+      },
+    );
+    index += 1;
+  }
 }

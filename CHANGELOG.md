@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.13 - 2026-09-27
+
+- Added navigable MusicBrainz artist relations to releases, release groups, and recordings.
+- Added release-group discographies with dates, types, and cover artwork to MusicBrainz artist details.
+
 ## 0.2.12 - 2026-09-27
 
 - Fixed GamesDB pagination by reading page numbers from the API's current, previous, and next URL fields.

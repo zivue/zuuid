@@ -1,7 +1,7 @@
 import type { ZuuidData } from "../../entity.js";
 import type { JsonValue } from "../../types.js";
-import { addAlias, addDescription, addDetail, addTag, arrayField, nestedString, objectPayload, stringField, valueAsString } from "../common.js";
-import { MUSICBRAINZ_PROVIDER } from "./constants.js";
+import { addAlias, addDescription, addDetail, addRelation, addTag, arrayField, nestedString, objectPayload, stringField, valueAsString } from "../common.js";
+import { MUSICBRAINZ_ARTIST_CATEGORY, MUSICBRAINZ_PROVIDER } from "./constants.js";
 
 export function musicBrainzPayload(value: JsonValue): Record<string, JsonValue> {
   return objectPayload(value);
@@ -48,6 +48,30 @@ export function artistCredit(payload: Record<string, JsonValue>): string | undef
 
 export function addArtistCreditDetail(data: ZuuidData, payload: Record<string, JsonValue>): void {
   addDetail(data, MUSICBRAINZ_PROVIDER, "artist_credit", artistCredit(payload));
+}
+
+export async function addArtistCreditRelations(data: ZuuidData, payload: Record<string, JsonValue>): Promise<void> {
+  let index = 0;
+  for (const credit of arrayField(payload, "artist-credit")) {
+    if (!credit || typeof credit !== "object" || Array.isArray(credit)) continue;
+    const creditObject = credit as Record<string, JsonValue>;
+    const artist = objectPayload(creditObject.artist ?? {});
+    const artistName = stringField(artist, "name");
+    const creditedName = stringField(creditObject, "name");
+    await addRelation(
+      data,
+      MUSICBRAINZ_PROVIDER,
+      MUSICBRAINZ_ARTIST_CATEGORY,
+      stringField(artist, "id"),
+      "performed_by",
+      artistName ?? creditedName,
+      {
+        order: index,
+        attribute: creditedName && creditedName !== artistName ? creditedName : null,
+      },
+    );
+    index += 1;
+  }
 }
 
 export function addLifeSpanDetails(data: ZuuidData, payload: Record<string, JsonValue>): void {

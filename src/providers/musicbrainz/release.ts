@@ -13,7 +13,7 @@ import {
   stringField,
   valueAsString
 } from "../common.js";
-import { addArtistCreditDetail, addMusicBrainzDescription, addMusicBrainzTags, musicBrainzId, musicBrainzPayload, requireMusicBrainzTitle } from "./helpers.js";
+import { addArtistCreditDetail, addArtistCreditRelations, addMusicBrainzDescription, addMusicBrainzTags, musicBrainzId, musicBrainzPayload, requireMusicBrainzTitle } from "./helpers.js";
 
 export type MusicBrainzTransformOptions = {
   coverArtBaseUrl?: string | null;
@@ -37,6 +37,7 @@ export async function transformMusicBrainzRelease(
   if (releaseDate && /^\d{4}-\d{2}-\d{2}$/.test(releaseDate)) data.primaryDate = releaseDate;
   addDetail(data, MUSICBRAINZ_PROVIDER, "release_date", releaseDate);
   addArtistCreditDetail(data, payload);
+  await addArtistCreditRelations(data, payload);
   addDetail(data, MUSICBRAINZ_PROVIDER, "labels", joinedLabels(payload));
   for (const key of ["status", "country", "barcode"]) addDetail(data, MUSICBRAINZ_PROVIDER, key, stringField(payload, key));
   addDetail(data, MUSICBRAINZ_PROVIDER, "track_count", valueAsString(payload["track-count"]));
