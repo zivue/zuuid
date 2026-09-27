@@ -166,7 +166,7 @@ function lookupIncludes(category: string): string {
     case MUSICBRAINZ_RECORDING_CATEGORY:
       return "artists+releases+isrcs+genres+tags+work-rels+url-rels";
     case MUSICBRAINZ_ARTIST_CATEGORY:
-      return "aliases+annotation+genres+tags+release-groups+area-rels+url-rels";
+      return "aliases+annotation+genres+tags+release-groups+artist-rels+area-rels+url-rels";
     case MUSICBRAINZ_LABEL_CATEGORY:
       return "aliases+annotation+genres+tags+area-rels+url-rels";
     case MUSICBRAINZ_WORK_CATEGORY:

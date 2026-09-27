@@ -252,6 +252,22 @@ test("transformMusicBrainz additional entity types", async () => {
       name: "Miles Davis",
       "sort-name": "Davis, Miles",
       "life-span": { begin: "1926-05-26" },
+      isnis: ["0000000121447074"],
+      relations: [
+        {
+          "target-type": "artist",
+          type: "member of band",
+          direction: "backward",
+          begin: "1955",
+          end: "1963",
+          attributes: ["tenor saxophone"],
+          artist: { id: "96dfb5f5-a7e3-40a1-9a6f-a95c5a5a2c23", name: "John Coltrane" },
+        },
+        { "target-type": "url", type: "wikidata", url: { resource: "https://www.wikidata.org/wiki/Q93341" } },
+        { "target-type": "url", type: "official homepage", url: { resource: "https://www.milesdavis.com/" } },
+        { "target-type": "url", type: "free streaming", url: { resource: "https://open.spotify.com/artist/0kbYTNQb4Pb1rPbbaF0pT4" } },
+        { "target-type": "url", type: "social network", url: { resource: "https://www.instagram.com/milesdavis/" } },
+      ],
       "release-groups": [{
         id: "aaa50249-1e6b-3910-b830-7e2fb622a8c4",
         title: "Kind of Blue",
@@ -265,6 +281,13 @@ test("transformMusicBrainz additional entity types", async () => {
   assert.equal(artistData.kind, "people");
   assert.equal(artistData.relations.some((relation) => relation.title === "Kind of Blue" && relation.relationType === "released"), true);
   assert.equal(artistData.relations.find((relation) => relation.title === "Kind of Blue")?.cover.includes("coverartarchive.org"), true);
+  assert.equal(artistData.relations.some((relation) => relation.title === "John Coltrane" && relation.relationType === "member"), true);
+  assert.equal(artistData.relations.find((relation) => relation.title === "John Coltrane")?.attribute, "tenor saxophone · 1955–1963");
+  assert.equal(artistData.details.some((detail) => detail.key === "homepage" && detail.value === "https://www.milesdavis.com/"), true);
+  assert.equal(artistData.details.some((detail) => detail.key === "spotify"), true);
+  assert.equal(artistData.details.some((detail) => detail.key === "instagram"), true);
+  assert.equal(artistData.externalIds.some((externalId) => externalId.source === "wikidata" && externalId.value === "Q93341"), true);
+  assert.equal(artistData.externalIds.some((externalId) => externalId.source === "isni" && externalId.value === "0000000121447074"), true);
 
   const label = await createSourceRecord({
     source: { provider: "musicbrainz", category: "label", externalId: "a24c1f3d-2e21-487b-b15e-3b419b6483bc" },

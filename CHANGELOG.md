@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.14 - 2026-09-27
+
+- Added MusicBrainz artist members and other artist-to-artist relationships with roles and active dates.
+- Preserved curated official, social, streaming, ticketing, and reference links from MusicBrainz.
+- Added structured Wikidata, Discogs, IMDb, AllMusic, streaming-service, ISNI, and IPI identifiers for artists.
+
 ## 0.2.13 - 2026-09-27
 
 - Added navigable MusicBrainz artist relations to releases, release groups, and recordings.
