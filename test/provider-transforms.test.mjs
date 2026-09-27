@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   createSourceRecord,
+  enrichFromWikimedia,
   transformComicVine,
   GamesDbProvider,
   MusicBrainzProvider,
@@ -123,7 +124,10 @@ test("MusicBrainzProvider fetches and searches release groups", async () => {
       if (parsed.pathname.endsWith("/release-group/aaa50249-1e6b-3910-b830-7e2fb622a8c4")) {
         return new Response(JSON.stringify({ id: "aaa50249-1e6b-3910-b830-7e2fb622a8c4", title: "Kind of Blue", "first-release-date": "1959-08-17", "primary-type": "Album" }), { status: 200 });
       }
-      return new Response(JSON.stringify({ count: 1, offset: 0, "release-groups": [{ id: "aaa50249-1e6b-3910-b830-7e2fb622a8c4", title: "Kind of Blue", "first-release-date": "1959-08-17", "primary-type": "Album", score: 100 }] }), { status: 200 });
+      return new Response(JSON.stringify({ count: 2, offset: 0, "release-groups": [
+        { id: "aaa50249-1e6b-3910-b830-7e2fb622a8c4", title: "Kind of Blue", "first-release-date": "1959-08-17", "primary-type": "Album", "artist-credit": [{ name: "Miles Davis", joinphrase: " & ", artist: { name: "Miles Davis" } }, { name: "John Coltrane", artist: { name: "John Coltrane" } }], score: 100 },
+        { id: "f66d3e2d-6c70-4f0a-8d71-a8d7287c9484", title: "A Compilation", "artist-credit": [{ name: "Various Artists", artist: { name: "Various Artists" } }], score: 90 },
+      ] }), { status: 200 });
     }
   });
 
@@ -139,6 +143,9 @@ test("MusicBrainzProvider fetches and searches release groups", async () => {
   assert.equal(search.results[0]?.category, "release_group");
   assert.equal(search.results[0]?.date, "1959-08-17");
   assert.equal(search.results[0]?.weight, 100);
+  assert.equal(search.results[0]?.attribute, "Miles Davis & John Coltrane");
+  assert.equal(search.results[1]?.title, "A Compilation");
+  assert.equal(search.results[1]?.attribute, "Various Artists");
 });
 
 test("MusicBrainzProvider fetches works without invalid artist include", async () => {
@@ -159,6 +166,26 @@ test("MusicBrainzProvider fetches works without invalid artist include", async (
   assert.equal(includes.includes("artists"), false);
   assert.equal(includes.includes("iswcs"), false);
   assert.equal(includes.includes("artist-rels"), true);
+});
+
+test("MusicBrainzProvider keeps the requested page size on a partial final page", async () => {
+  const provider = new MusicBrainzProvider({
+    apiBase: "https://musicbrainz.test/ws/2",
+    fetch: async () => new Response(JSON.stringify({
+      count: 30,
+      offset: 25,
+      artists: Array.from({ length: 5 }, (_, index) => ({
+        id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+        name: `Artist ${index + 1}`,
+      })),
+    }), { status: 200 }),
+  });
+
+  const search = await provider.searchArtists({ query: "artist", limit: 25, offset: 25 });
+
+  assert.equal(search.pagination.page, 2);
+  assert.equal(search.pagination.totalPages, 2);
+  assert.equal(search.pagination.totalResults, 30);
 });
 
 test("MusicBrainzProvider fetches artist discographies", async () => {
@@ -187,6 +214,62 @@ test("MusicBrainzProvider fetches artist discographies", async () => {
   assert.equal(data?.relations.some((relation) => relation.title === "Kind of Blue" && relation.relationType === "released"), true);
 });
 
+test("enrichFromWikimedia adds attributed artwork, descriptions, links, and provenance", async () => {
+  const source = await createSourceRecord({
+    source: { provider: "musicbrainz", category: "artist", externalId: "561d854a-6a28-4aa7-8c99-323e6ce46c2a" },
+    payload: {
+      id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a",
+      name: "Miles Davis",
+      relations: [{ "target-type": "url", type: "wikidata", url: { resource: "https://www.wikidata.org/wiki/Q93341" } }],
+    },
+    observedAt,
+  });
+  const data = await transformMusicBrainzArtist(source);
+  const requested = [];
+  await enrichFromWikimedia(data, {
+    wikidataEntityBaseUrl: "https://wikidata.test/entity",
+    wikipediaApiBaseUrl: "https://wikipedia.test/api",
+    commonsApiBaseUrl: "https://commons.test/api",
+    fetch: async (input) => {
+      const url = new URL(input.toString());
+      requested.push(url);
+      if (url.hostname === "wikidata.test") return new Response(JSON.stringify({
+        entities: { Q93341: {
+          descriptions: { en: { language: "en", value: "American jazz trumpeter" } },
+          sitelinks: { enwiki: { title: "Miles Davis" } },
+          claims: { P18: [{ rank: "preferred", mainsnak: { datavalue: { value: "Miles Davis.jpg" } } }] },
+        } },
+      }), { status: 200 });
+      if (url.hostname === "wikipedia.test") return new Response(JSON.stringify({ query: { pages: { 1: {
+        pageid: 1,
+        extract: "Miles Dewey Davis III was an American jazz trumpeter and composer.",
+        canonicalurl: "https://en.wikipedia.org/wiki/Miles_Davis",
+      } } } }), { status: 200 });
+      return new Response(JSON.stringify({ query: { pages: { 2: { imageinfo: [{
+        thumburl: "https://upload.wikimedia.org/miles-davis.jpg",
+        thumbwidth: 900,
+        thumbheight: 1200,
+        descriptionurl: "https://commons.wikimedia.org/wiki/File:Miles_Davis.jpg",
+        extmetadata: {
+          Artist: { value: "<b>Jane Photographer</b>" },
+          LicenseShortName: { value: "CC BY-SA 4.0" },
+          LicenseUrl: { value: "https://creativecommons.org/licenses/by-sa/4.0/" },
+        },
+      }] } } } }), { status: 200 });
+    },
+  });
+
+  assert.equal(requested.length, 3);
+  assert.equal(data.cover, "https://upload.wikimedia.org/miles-davis.jpg");
+  assert.equal(data.descriptions.some((description) => description.source === "wikidata" && description.language === "en"), true);
+  assert.equal(data.descriptions.some((description) => description.source === "wikipedia" && description.value.startsWith("Miles Dewey")), true);
+  assert.equal(data.links?.some((link) => link.service === "wikipedia"), true);
+  assert.equal(data.links?.some((link) => link.service === "wikimedia_commons"), true);
+  assert.equal(data.media[0]?.data?.artist, "Jane Photographer");
+  assert.equal(data.media[0]?.data?.license, "CC BY-SA 4.0");
+  assert.deepEqual(new Set(data.provenance.map((entry) => entry.source.provider)), new Set(["musicbrainz", "wikidata", "wikipedia", "wikimedia"]));
+});
+
 test("transformMusicBrainzRelease maps release metadata", async () => {
   const source = await createSourceRecord({
     source: { provider: "musicbrainz", category: "release", externalId: "f5093c06-23e3-404f-aeaa-40f72885ee3a" },
@@ -196,8 +279,13 @@ test("transformMusicBrainzRelease maps release metadata", async () => {
       date: "1959-08-17",
       barcode: "074646493528",
       "artist-credit": [{ name: "Miles Davis", artist: { id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a", name: "Miles Davis" } }],
-      "label-info": [{ label: { name: "Columbia" } }],
-      "release-group": { id: "aaa50249-1e6b-3910-b830-7e2fb622a8c4" },
+      "label-info": [{ label: { id: "9f142123-20e7-4350-9d88-53e3a8b6a35f", name: "Columbia" } }],
+      "release-group": { id: "aaa50249-1e6b-3910-b830-7e2fb622a8c4", title: "Kind of Blue" },
+      media: [{ position: 1, tracks: [{ position: 1, title: "So What", recording: { id: "0b5d8c0f-4975-4e44-9e67-0a5f1b5939f6", title: "So What" } }] }],
+      relations: [
+        { "target-type": "url", type: "streaming", url: { resource: "https://open.spotify.com/album/abc123" } },
+        { "target-type": "url", type: "discogs", url: { resource: "https://www.discogs.com/release/12345" } },
+      ],
       genres: [{ name: "Modal Jazz" }],
       tags: [{ name: "Jazz" }],
       "cover-art-archive": { front: true }
@@ -210,6 +298,11 @@ test("transformMusicBrainzRelease maps release metadata", async () => {
   assert.equal(data.cover.includes("coverartarchive.org"), true);
   assert.equal(data.externalIds.some((id) => id.category === "release_group"), true);
   assert.equal(data.relations.some((relation) => relation.title === "Miles Davis" && relation.relationType === "performed_by"), true);
+  assert.equal(data.relations.some((relation) => relation.title === "Kind of Blue" && relation.relationType === "part_of"), true);
+  assert.equal(data.relations.some((relation) => relation.title === "Columbia" && relation.relationType === "published_by"), true);
+  assert.equal(data.relations.some((relation) => relation.title === "So What" && relation.relationType === "contains"), true);
+  assert.equal(data.links?.some((link) => link.service === "spotify" && link.relation === "streaming"), true);
+  assert.equal(data.externalIds.some((id) => id.source === "discogs" && id.value === "12345"), true);
 });
 
 test("transformMusicBrainz additional entity types", async () => {
@@ -221,6 +314,7 @@ test("transformMusicBrainz additional entity types", async () => {
       "first-release-date": "1959-08-17",
       "primary-type": "Album",
       "artist-credit": [{ name: "Miles Davis", artist: { id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a", name: "Miles Davis" } }],
+      releases: [{ id: "f5093c06-23e3-404f-aeaa-40f72885ee3a", title: "Kind of Blue", date: "1959-08-17", status: "Official", country: "US" }],
       genres: [{ name: "Modal Jazz" }]
     },
     observedAt
@@ -228,6 +322,7 @@ test("transformMusicBrainz additional entity types", async () => {
   const releaseGroupData = await transformMusicBrainzReleaseGroup(releaseGroup, { coverArtBaseUrl: null });
   assert.equal(releaseGroupData.category, "release_group");
   assert.equal(releaseGroupData.relations.some((relation) => relation.title === "Miles Davis" && relation.relationType === "performed_by"), true);
+  assert.equal(releaseGroupData.relations.some((relation) => relation.title === "Kind of Blue" && relation.relationType === "edition"), true);
 
   const recording = await createSourceRecord({
     source: { provider: "musicbrainz", category: "recording", externalId: "0b5d8c0f-4975-4e44-9e67-0a5f1b5939f6" },
@@ -236,7 +331,9 @@ test("transformMusicBrainz additional entity types", async () => {
       title: "So What",
       length: 562000,
       isrcs: ["USSM15900116"],
-      "artist-credit": [{ artist: { id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a", name: "Miles Davis" } }]
+      "artist-credit": [{ artist: { id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a", name: "Miles Davis" } }],
+      releases: [{ id: "f5093c06-23e3-404f-aeaa-40f72885ee3a", title: "Kind of Blue", date: "1959-08-17" }],
+      relations: [{ "target-type": "work", type: "performance", work: { id: "0e3d8d4d-7b6b-3f9b-8a45-9f477f86f30f", title: "So What" } }]
     },
     observedAt
   });
@@ -244,6 +341,8 @@ test("transformMusicBrainz additional entity types", async () => {
   assert.equal(recordingData.kind, "listen");
   assert.equal(recordingData.externalIds.some((id) => id.source === "isrc"), true);
   assert.equal(recordingData.relations.some((relation) => relation.title === "Miles Davis"), true);
+  assert.equal(recordingData.relations.some((relation) => relation.relationType === "appears_in" && relation.title === "Kind of Blue"), true);
+  assert.equal(recordingData.relations.some((relation) => relation.relationType === "performance_of" && relation.title === "So What"), true);
 
   const artist = await createSourceRecord({
     source: { provider: "musicbrainz", category: "artist", externalId: "561d854a-6a28-4aa7-8c99-323e6ce46c2a" },
@@ -267,6 +366,7 @@ test("transformMusicBrainz additional entity types", async () => {
         { "target-type": "url", type: "official homepage", url: { resource: "https://www.milesdavis.com/" } },
         { "target-type": "url", type: "free streaming", url: { resource: "https://open.spotify.com/artist/0kbYTNQb4Pb1rPbbaF0pT4" } },
         { "target-type": "url", type: "social network", url: { resource: "https://www.instagram.com/milesdavis/" } },
+        { "target-type": "url", type: "youtube", url: { resource: "https://www.youtube.com/@milesdavis" } },
       ],
       "release-groups": [{
         id: "aaa50249-1e6b-3910-b830-7e2fb622a8c4",
@@ -286,6 +386,10 @@ test("transformMusicBrainz additional entity types", async () => {
   assert.equal(artistData.details.some((detail) => detail.key === "homepage" && detail.value === "https://www.milesdavis.com/"), true);
   assert.equal(artistData.details.some((detail) => detail.key === "spotify"), true);
   assert.equal(artistData.details.some((detail) => detail.key === "instagram"), true);
+  assert.equal(artistData.links?.some((link) => link.service === "homepage" && link.relation === "official"), true);
+  assert.equal(artistData.links?.some((link) => link.service === "spotify" && link.relation === "streaming"), true);
+  assert.equal(artistData.links?.some((link) => link.service === "instagram" && link.relation === "social"), true);
+  assert.equal(artistData.links?.some((link) => link.service === "youtube" && link.url === "https://www.youtube.com/@milesdavis"), true);
   assert.equal(artistData.externalIds.some((externalId) => externalId.source === "wikidata" && externalId.value === "Q93341"), true);
   assert.equal(artistData.externalIds.some((externalId) => externalId.source === "isni" && externalId.value === "0000000121447074"), true);
 
@@ -397,6 +501,8 @@ test("transformOpenStreetMapPlace maps city details", async () => {
   assert.equal(data.aliases.some((alias) => alias.value === "オスロ"), true);
   assert.equal(data.externalIds.some((id) => id.source === "wikidata"), true);
   assert.equal(data.details.some((detail) => detail.key === "website" && detail.value === "https://www.oslo.kommune.no"), true);
+  assert.equal(data.links?.some((link) => link.service === "website" && link.relation === "official"), true);
+  assert.equal(data.links?.some((link) => link.service === "openstreetmap"), true);
   assert.equal(data.details.some((detail) => detail.key === "phone" && detail.value === "+47 21 80 21 80"), true);
   assert.equal(data.details.some((detail) => detail.key === "opening_hours" && detail.value === "Mo-Fr 08:00-16:00"), true);
 });
@@ -445,6 +551,7 @@ test("transformComicVine, transformTicketmaster, and transformSetlistFm map link
     payload: {
       id: "e1",
       name: "Miles Davis Tribute",
+      url: "https://www.ticketmaster.com/event/e1",
       dates: { start: { localDate: "2026-06-01" } },
       priceRanges: [{ min: 45, max: 80, currency: "USD" }],
       _embedded: { venues: [{ id: "v1", name: "Blue Note", address: { line1: "131 W 3rd St" }, city: { name: "New York" }, location: { latitude: "40.73", longitude: "-74.00" } }] },
@@ -457,6 +564,7 @@ test("transformComicVine, transformTicketmaster, and transformSetlistFm map link
   assert.equal(ticketmaster.relations.some((relation) => relation.category === "venue"), true);
   assert.equal(ticketmaster.details.some((detail) => detail.key === "city" && detail.value === "New York"), true);
   assert.equal(ticketmaster.details.some((detail) => detail.key === "price" && detail.value === "45–80 USD"), true);
+  assert.equal(ticketmaster.links?.some((link) => link.service === "ticketmaster" && link.relation === "tickets"), true);
 
   const setlist = await createSourceRecord({
     source: { provider: "setlistfm", category: "setlist", externalId: "s1" },

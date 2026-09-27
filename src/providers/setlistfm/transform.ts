@@ -1,6 +1,6 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
-import { addAlias, addDescription, addDetail, addRelation, addTag, arrayField, baseDataFromSource, datePrefix, finalizeData, formatNumber, nestedString, objectPayload, stringField, valueAsString } from "../common.js";
+import { addAlias, addDescription, addDetail, addLink, addRelation, addTag, arrayField, baseDataFromSource, datePrefix, finalizeData, formatNumber, nestedString, objectPayload, stringField, valueAsString } from "../common.js";
 import { SETLISTFM_ARTIST_CATEGORY, SETLISTFM_PROVIDER, SETLISTFM_SETLIST_CATEGORY, SETLISTFM_VENUE_CATEGORY } from "./constants.js";
 
 export async function transformSetlistFm(source: SourceRecord): Promise<ZuuidData> {
@@ -31,6 +31,7 @@ export async function transformSetlistFmSetlist(source: SourceRecord): Promise<Z
   addDetail(data, SETLISTFM_PROVIDER, "encore_count", String(encoreCount));
   addDetail(data, SETLISTFM_PROVIDER, "event_date", primaryDate);
   addDetail(data, SETLISTFM_PROVIDER, "source_url", stringField(payload, "url"));
+  addLink(data, SETLISTFM_PROVIDER, stringField(payload, "url"), "reference", { service: "setlistfm" });
   addDetail(data, SETLISTFM_PROVIDER, "songs", songs.length ? songs.join(", ") : undefined);
   addDetail(data, SETLISTFM_PROVIDER, "info", stringField(payload, "info"));
   await addRelation(data, SETLISTFM_PROVIDER, SETLISTFM_ARTIST_CATEGORY, nestedString(payload, ["artist", "mbid"]), "artist", artist);
@@ -53,6 +54,7 @@ export async function transformSetlistFmArtist(source: SourceRecord): Promise<Zu
   addAlias(data, stringField(payload, "sortName") === name ? undefined : stringField(payload, "sortName"), "alias", false, SETLISTFM_PROVIDER);
   addDescription(data, SETLISTFM_PROVIDER, stringField(payload, "disambiguation"), "en");
   addDetail(data, SETLISTFM_PROVIDER, "source_url", stringField(payload, "url"));
+  addLink(data, SETLISTFM_PROVIDER, stringField(payload, "url"), "reference", { service: "setlistfm" });
   addDetail(data, SETLISTFM_PROVIDER, "total_setlists", valueAsString((payload.setlists as Record<string, never> | undefined)?.total));
   addTag(data, "artist"); addTag(data, "musician");
   data.externalIds.push({ source: "musicbrainz", category: "artist", value: id });
@@ -71,6 +73,7 @@ export async function transformSetlistFmVenue(source: SourceRecord): Promise<Zuu
   const data = await baseDataFromSource(source, SETLISTFM_PROVIDER, SETLISTFM_VENUE_CATEGORY, "venue", id, title);
   addAlias(data, title, "title", true, SETLISTFM_PROVIDER, "en");
   for (const [key, value] of [["city", nestedString(payload, ["city", "name"])], ["state", nestedString(payload, ["city", "state"])], ["state_code", nestedString(payload, ["city", "stateCode"])], ["country", nestedString(payload, ["city", "country", "name"])], ["country_code", nestedString(payload, ["city", "country", "code"])], ["latitude", nestedNumber(payload, ["city", "coords", "lat"])], ["longitude", nestedNumber(payload, ["city", "coords", "long"])], ["source_url", stringField(payload, "url")]] as const) addDetail(data, SETLISTFM_PROVIDER, key, value);
+  addLink(data, SETLISTFM_PROVIDER, stringField(payload, "url"), "reference", { service: "setlistfm" });
   addTag(data, "venue"); addTag(data, "concert hall"); addTag(data, "live music");
   return finalizeData(data, source);
 }

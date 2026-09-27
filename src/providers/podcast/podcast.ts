@@ -1,6 +1,6 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
-import { addAlias, addDescription, addDetail, addMedia, addTag, arrayField, baseDataFromSource, datePrefix, finalizeData, formatNumber, objectPayload, stringField, stripHtml, valueAsString } from "../common.js";
+import { addAlias, addDescription, addDetail, addLink, addMedia, addTag, arrayField, baseDataFromSource, datePrefix, finalizeData, formatNumber, objectPayload, stringField, stripHtml, valueAsString } from "../common.js";
 import { PODCAST_CATEGORY, PODCAST_PROVIDER } from "./constants.js";
 
 export async function transformPodcast(source: SourceRecord): Promise<ZuuidData> {
@@ -19,6 +19,8 @@ export async function transformPodcast(source: SourceRecord): Promise<ZuuidData>
   addDescription(data, "itunes", description ? stripHtml(description) : undefined, "en");
   addMedia(data, "itunes", stringField(payload, "artworkUrl600") ?? stringField(payload, "artworkUrl100") ?? stringField(payload, "artworkUrl60") ?? stringField(payload, "artworkUrl30"), "cover");
   for (const [key, field] of [["artist", "artistName"], ["country", "country"], ["release_date", "releaseDate"], ["content_rating", "contentAdvisoryRating"], ["feed_url", "feedUrl"], ["explicit", "collectionExplicitness"], ["source_url", "collectionViewUrl"]] as const) addDetail(data, PODCAST_PROVIDER, key, stringField(payload, field));
+  addLink(data, PODCAST_PROVIDER, stringField(payload, "collectionViewUrl"), "official", { service: "apple_podcasts" });
+  addLink(data, PODCAST_PROVIDER, stringField(payload, "feedUrl"), "feed", { service: "rss" });
   addDetail(data, PODCAST_PROVIDER, "episode_count", valueAsString(payload.trackCount));
   const price = typeof payload.collectionPrice === "number" && payload.collectionPrice > 0 ? formatNumber(payload.collectionPrice) : undefined;
   addDetail(data, PODCAST_PROVIDER, "price", price);

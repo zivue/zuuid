@@ -1,8 +1,8 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
-import { addDetail, arrayField, baseDataFromSource, finalizeData, stringField, valueAsString } from "../common.js";
-import { MUSICBRAINZ_PROVIDER, MUSICBRAINZ_RECORDING_CATEGORY } from "./constants.js";
-import { addArtistCreditDetail, addArtistCreditRelations, addMusicBrainzDescription, addMusicBrainzTags, musicBrainzId, musicBrainzPayload, requireMusicBrainzTitle } from "./helpers.js";
+import { addDetail, addRelation, arrayField, baseDataFromSource, finalizeData, objectPayload, stringField, valueAsString } from "../common.js";
+import { MUSICBRAINZ_PROVIDER, MUSICBRAINZ_RECORDING_CATEGORY, MUSICBRAINZ_RELEASE_CATEGORY, MUSICBRAINZ_WORK_CATEGORY } from "./constants.js";
+import { addArtistCreditDetail, addArtistCreditRelations, addMusicBrainzDescription, addMusicBrainzTags, addMusicBrainzUrlRelations, musicBrainzId, musicBrainzPayload, requireMusicBrainzTitle } from "./helpers.js";
 
 export async function transformMusicBrainzRecording(source: SourceRecord): Promise<ZuuidData> {
   if (source.source.provider !== MUSICBRAINZ_PROVIDER || source.source.category !== MUSICBRAINZ_RECORDING_CATEGORY) {
@@ -25,5 +25,29 @@ export async function transformMusicBrainzRecording(source: SourceRecord): Promi
   await addArtistCreditRelations(data, payload);
   addMusicBrainzDescription(data, payload);
   addMusicBrainzTags(data, payload);
+  addMusicBrainzUrlRelations(data, payload, MUSICBRAINZ_RECORDING_CATEGORY);
+  await addRecordingRelations(data, payload);
   return finalizeData(data, source);
+}
+
+async function addRecordingRelations(data: ZuuidData, payload: Record<string, unknown>): Promise<void> {
+  let order = 0;
+  for (const value of arrayField(payload as never, "releases")) {
+    const release = objectPayload(value);
+    await addRelation(data, MUSICBRAINZ_PROVIDER, MUSICBRAINZ_RELEASE_CATEGORY, stringField(release, "id"), "appears_in", stringField(release, "title"), {
+      date: stringField(release, "date") ?? null,
+      order,
+    });
+    order += 1;
+  }
+  for (const value of arrayField(payload as never, "relations")) {
+    const relation = objectPayload(value);
+    if (stringField(relation, "target-type") !== "work") continue;
+    const work = objectPayload(relation.work ?? {});
+    await addRelation(data, MUSICBRAINZ_PROVIDER, MUSICBRAINZ_WORK_CATEGORY, stringField(work, "id"), "performance_of", stringField(work, "title"), {
+      order,
+      data: { originalRelationType: stringField(relation, "type") ?? "performance" },
+    });
+    order += 1;
+  }
 }

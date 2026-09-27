@@ -2,7 +2,7 @@ import { createZuuidData, type SearchResponse, type ZuuidData, type ZuuidSearchR
 import { providerZuuid } from "../../identity.js";
 import { attachSourceMetadata, createSourceRecord, type SourceRecord } from "../../source.js";
 import type { JsonValue } from "../../types.js";
-import { normalizeRating } from "../common.js";
+import { addLink, normalizeRating } from "../common.js";
 import { TMDB_BACKDROP_BASE_URL, TMDB_POSTER_BASE_URL, TMDB_PROVIDER } from "./constants.js";
 import type { TmdbProvider } from "./client.js";
 import type { TmdbSearchInput, TmdbSearchResponse, TmdbTransformOptions } from "./types.js";
@@ -315,6 +315,7 @@ export async function transformTmdbMovie(
   addNumberDetail(data, "budget", payload.budget);
   addNumberDetail(data, "revenue", payload.revenue);
   addDetail(data, "homepage", payload.homepage);
+  addLink(data, TMDB_PROVIDER, payload.homepage, "official", { service: "homepage" });
   addBooleanDetail(data, "adult", payload.adult);
   addBooleanDetail(data, "video", payload.video);
   addBooleanDetail(data, "softcore", payload.softcore);
@@ -389,6 +390,16 @@ function addExternalIds(data: ZuuidData, payload: TmdbMoviePayload): void {
   addExternalId(data, "facebook", TMDB_MOVIE_CATEGORY, stringField(ids.facebook_id ?? undefined));
   addExternalId(data, "instagram", TMDB_MOVIE_CATEGORY, stringField(ids.instagram_id ?? undefined));
   addExternalId(data, "twitter", TMDB_MOVIE_CATEGORY, stringField(ids.twitter_id ?? undefined));
+  const imdb = stringField(ids.imdb_id ?? undefined) ?? stringField(payload.imdb_id);
+  const wikidata = stringField(ids.wikidata_id ?? undefined);
+  const facebook = stringField(ids.facebook_id ?? undefined);
+  const instagram = stringField(ids.instagram_id ?? undefined);
+  const twitter = stringField(ids.twitter_id ?? undefined);
+  addLink(data, TMDB_PROVIDER, imdb ? `https://www.imdb.com/title/${imdb}/` : undefined, "reference", { service: "imdb" });
+  addLink(data, TMDB_PROVIDER, wikidata ? `https://www.wikidata.org/wiki/${wikidata}` : undefined, "reference", { service: "wikidata" });
+  addLink(data, TMDB_PROVIDER, facebook ? `https://www.facebook.com/${facebook}` : undefined, "social", { service: "facebook" });
+  addLink(data, TMDB_PROVIDER, instagram ? `https://www.instagram.com/${instagram}` : undefined, "social", { service: "instagram" });
+  addLink(data, TMDB_PROVIDER, twitter ? `https://x.com/${twitter}` : undefined, "social", { service: "twitter" });
 }
 
 function addExternalId(data: ZuuidData, source: string, category: string, value: string | undefined): void {

@@ -2,7 +2,7 @@ import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
 import { addDetail, addTag, baseDataFromSource, finalizeData, nestedString, stringField, valueAsString } from "../common.js";
 import { MUSICBRAINZ_LABEL_CATEGORY, MUSICBRAINZ_PROVIDER } from "./constants.js";
-import { addAreaDetails, addLifeSpanDetails, addMusicBrainzAliases, addMusicBrainzDescription, addMusicBrainzTags, musicBrainzId, musicBrainzPayload, requireMusicBrainzTitle } from "./helpers.js";
+import { addAreaDetails, addLifeSpanDetails, addMusicBrainzAliases, addMusicBrainzDescription, addMusicBrainzTags, addMusicBrainzUrlRelations, musicBrainzId, musicBrainzPayload, requireMusicBrainzTitle } from "./helpers.js";
 
 export async function transformMusicBrainzLabel(source: SourceRecord): Promise<ZuuidData> {
   if (source.source.provider !== MUSICBRAINZ_PROVIDER || source.source.category !== MUSICBRAINZ_LABEL_CATEGORY) {
@@ -25,6 +25,7 @@ export async function transformMusicBrainzLabel(source: SourceRecord): Promise<Z
   addLifeSpanDetails(data, payload);
   addAreaDetails(data, payload);
   addMusicBrainzTags(data, payload);
+  addMusicBrainzUrlRelations(data, payload, MUSICBRAINZ_LABEL_CATEGORY);
   addTag(data, "label");
   return finalizeData(data, source);
 }

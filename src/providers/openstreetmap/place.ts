@@ -1,6 +1,6 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
-import { addAlias, addDescription, addDetail, addMedia, addTag, arrayField, baseDataFromSource, finalizeData, nestedString, normalizeRating, objectPayload, stringField, valueAsString } from "../common.js";
+import { addAlias, addDescription, addDetail, addLink, addMedia, addTag, arrayField, baseDataFromSource, finalizeData, nestedString, normalizeRating, objectPayload, stringField, valueAsString } from "../common.js";
 import { OPENSTREETMAP_CITY_CATEGORY, OPENSTREETMAP_COUNTRY_CATEGORY, OPENSTREETMAP_PLACE_CATEGORY, OPENSTREETMAP_PROVIDER, OPENSTREETMAP_VENUE_CATEGORY } from "./constants.js";
 
 export async function transformOpenStreetMapPlace(source: SourceRecord): Promise<ZuuidData> {
@@ -13,6 +13,7 @@ export async function transformOpenStreetMapPlace(source: SourceRecord): Promise
   if (!id) throw new Error("missing required OpenStreetMap field: place_id");
   if (!title) throw new Error("missing required OpenStreetMap field: name");
   const data = await baseDataFromSource(source, OPENSTREETMAP_PROVIDER, source.source.category, source.source.category, id, title);
+  addLink(data, OPENSTREETMAP_PROVIDER, openStreetMapUrl(id), "reference", { service: "openstreetmap" });
   const rawImportance = typeof payload.importance === "number" ? payload.importance : undefined;
   data.rating = normalizeRating(rawImportance, 0, 1);
   addDetail(data, OPENSTREETMAP_PROVIDER, "provider_rating", rawImportance);
@@ -35,15 +36,36 @@ export async function transformOpenStreetMapPlace(source: SourceRecord): Promise
   for (const key of ["population", "wikidata", "wikipedia", "opening_hours", "operator"]) {
     addDetail(data, OPENSTREETMAP_PROVIDER, key, nestedString(payload, ["extratags", key]));
   }
-  addDetail(data, OPENSTREETMAP_PROVIDER, "website", nestedString(payload, ["extratags", "website"])
+  const website = nestedString(payload, ["extratags", "website"])
     ?? nestedString(payload, ["extratags", "contact:website"])
-    ?? nestedString(payload, ["extratags", "url"]));
+    ?? nestedString(payload, ["extratags", "url"]);
+  addDetail(data, OPENSTREETMAP_PROVIDER, "website", website);
+  addLink(data, OPENSTREETMAP_PROVIDER, website, "official", { service: "website" });
   addDetail(data, OPENSTREETMAP_PROVIDER, "phone", nestedString(payload, ["extratags", "phone"])
     ?? nestedString(payload, ["extratags", "contact:phone"]));
   const wikidata = nestedString(payload, ["extratags", "wikidata"]);
   if (wikidata) data.externalIds.push({ source: "wikidata", category: source.source.category, value: wikidata });
+  addLink(data, OPENSTREETMAP_PROVIDER, wikidata ? `https://www.wikidata.org/wiki/${wikidata}` : undefined, "reference", { service: "wikidata" });
+  addLink(data, OPENSTREETMAP_PROVIDER, wikipediaUrl(nestedString(payload, ["extratags", "wikipedia"])), "reference", { service: "wikipedia" });
   addTag(data, "location"); addTag(data, "place"); addTag(data, source.source.category); addTag(data, nestedString(payload, ["address", "country_code"]));
   return finalizeData(data, source);
+}
+
+function openStreetMapUrl(id: string): string | undefined {
+  const match = /^([NWR])(\d+)$/i.exec(id);
+  if (!match) return undefined;
+  const type = match[1].toUpperCase() === "N" ? "node" : match[1].toUpperCase() === "W" ? "way" : "relation";
+  return `https://www.openstreetmap.org/${type}/${match[2]}`;
+}
+
+function wikipediaUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  if (/^https?:\/\//i.test(value)) return value;
+  const separator = value.indexOf(":");
+  if (separator < 1) return undefined;
+  const language = value.slice(0, separator).toLowerCase();
+  const title = value.slice(separator + 1).trim().replaceAll(" ", "_");
+  return /^[a-z-]+$/.test(language) && title ? `https://${language}.wikipedia.org/wiki/${encodeURIComponent(title).replaceAll("%2F", "/")}` : undefined;
 }
 
 function osmId(payload: Record<string, unknown>): string | undefined {

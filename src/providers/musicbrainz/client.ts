@@ -22,6 +22,7 @@ import { transformMusicBrainzRecording } from "./recording.js";
 import { transformMusicBrainzRelease } from "./release.js";
 import { transformMusicBrainzReleaseGroup } from "./release-group.js";
 import { transformMusicBrainzWork } from "./work.js";
+import { artistCredit } from "./helpers.js";
 import type { FetchMusicBrainzInput, MusicBrainzFetchLike, MusicBrainzProviderOptions, MusicBrainzSearchInput, MusicBrainzProviderTransformOptions } from "./types.js";
 
 export class MusicBrainzProvider {
@@ -99,7 +100,7 @@ export async function searchMusicBrainzSourceRecords(provider: MusicBrainzProvid
   const results = searchItems(payload, category);
   return {
     results: await Promise.all(results.map((item) => createSourceRecord({ source: { provider: MUSICBRAINZ_PROVIDER, category, externalId: stringField(item, "id") ?? "" }, payload: item as JsonValue }))),
-    pagination: pagination(payload)
+    pagination: pagination(payload, normalizedSearchLimit(input.limit))
   };
 }
 
@@ -128,7 +129,7 @@ export async function searchMusicBrainz(provider: MusicBrainzProvider, category:
       source: { source: MUSICBRAINZ_PROVIDER, category, value: externalId }
     });
   }
-  return { results, pagination: pagination(payload) };
+  return { results, pagination: pagination(payload, normalizedSearchLimit(input.limit)) };
 }
 
 async function searchPayload(provider: MusicBrainzProvider, category: string, input: MusicBrainzSearchInput): Promise<Record<string, JsonValue>> {
@@ -136,8 +137,8 @@ async function searchPayload(provider: MusicBrainzProvider, category: string, in
   if (!query) throw new Error("MusicBrainz search query must not be empty");
   return objectPayload(await provider.getJson<JsonValue>(`/${entityPath(category)}`, {
     query,
-    limit: String(input.limit ?? 25),
-    offset: String(input.offset ?? 0)
+    limit: String(normalizedSearchLimit(input.limit)),
+    offset: String(normalizedSearchOffset(input.offset))
   }) ?? {});
 }
 
@@ -146,16 +147,14 @@ function searchItems(payload: Record<string, JsonValue>, category: string): Reco
   return Array.isArray(value) ? value.filter(isObject) : [];
 }
 
-function pagination(payload: Record<string, JsonValue>) {
+function pagination(payload: Record<string, JsonValue>, requestedLimit: number) {
   const count = numberValue(payload.count) ?? 0;
   const offset = numberValue(payload.offset) ?? 0;
-  const limit = Array.isArray(payload[searchKeyFromPayload(payload)]) ? (payload[searchKeyFromPayload(payload)] as JsonValue[]).length : 0;
-  return { page: limit > 0 ? Math.floor(offset / limit) + 1 : 1, totalPages: limit > 0 ? Math.ceil(count / limit) : 0, totalResults: count };
+  return { page: Math.floor(offset / requestedLimit) + 1, totalPages: count > 0 ? Math.ceil(count / requestedLimit) : 0, totalResults: count };
 }
 
-function searchKeyFromPayload(payload: Record<string, JsonValue>): string {
-  return ["releases", "release-groups", "recordings", "artists", "labels", "works"].find((key) => Array.isArray(payload[key])) ?? "";
-}
+function normalizedSearchLimit(value: number | undefined): number { return Math.min(100, Math.max(1, Math.trunc(value ?? 25))); }
+function normalizedSearchOffset(value: number | undefined): number { return Math.max(0, Math.trunc(value ?? 0)); }
 
 function lookupIncludes(category: string): string {
   switch (category) {
@@ -181,7 +180,14 @@ function searchKey(category: string): string { return category === MUSICBRAINZ_R
 function publicCategory(category: string): string { return category === MUSICBRAINZ_RELEASE_GROUP_CATEGORY ? "release_group" : category === MUSICBRAINZ_WORK_CATEGORY ? "musical_work" : category; }
 function titleFor(item: Record<string, JsonValue>, category: string): string | undefined { return category === MUSICBRAINZ_ARTIST_CATEGORY || category === MUSICBRAINZ_LABEL_CATEGORY ? stringField(item, "name") : stringField(item, "title"); }
 function dateFor(item: Record<string, JsonValue>, category: string): string | null { return (category === MUSICBRAINZ_RELEASE_GROUP_CATEGORY ? stringField(item, "first-release-date") : category === MUSICBRAINZ_RECORDING_CATEGORY ? stringField(item, "first-release-date") : category === MUSICBRAINZ_ARTIST_CATEGORY || category === MUSICBRAINZ_LABEL_CATEGORY ? nestedString(item, ["life-span", "begin"]) : stringField(item, "date")) ?? null; }
-function attributeFor(item: Record<string, JsonValue>, category: string): string | null { return category === MUSICBRAINZ_ARTIST_CATEGORY || category === MUSICBRAINZ_LABEL_CATEGORY || category === MUSICBRAINZ_WORK_CATEGORY ? stringField(item, "type") ?? null : stringField(item, "primary-type") ?? stringField(item, "status") ?? null; }
+function attributeFor(item: Record<string, JsonValue>, category: string): string | null {
+  if ([MUSICBRAINZ_RELEASE_CATEGORY, MUSICBRAINZ_RELEASE_GROUP_CATEGORY, MUSICBRAINZ_RECORDING_CATEGORY].includes(category)) {
+    return artistCredit(item) ?? null;
+  }
+  return category === MUSICBRAINZ_ARTIST_CATEGORY || category === MUSICBRAINZ_LABEL_CATEGORY || category === MUSICBRAINZ_WORK_CATEGORY
+    ? stringField(item, "type") ?? null
+    : stringField(item, "primary-type") ?? stringField(item, "status") ?? null;
+}
 function coverFor(item: Record<string, JsonValue>, category: string, options: MusicBrainzProviderTransformOptions): string | null { const id = stringField(item, "id"); if (!id) return null; if (category === MUSICBRAINZ_RELEASE_GROUP_CATEGORY && options.releaseGroupCoverArtBaseUrl) return `${options.releaseGroupCoverArtBaseUrl.replace(/\/$/, "")}/${id}/front`; if (category === MUSICBRAINZ_RELEASE_CATEGORY && options.coverArtBaseUrl && objectPayload(item["cover-art-archive"] ?? {}).front === true) return `${options.coverArtBaseUrl.replace(/\/$/, "")}/${id}/front`; return null; }
 function numberValue(value: JsonValue | undefined): number | null { if (typeof value === "number" && Number.isFinite(value)) return value; if (typeof value === "string") { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null; } return null; }
 function isObject(value: JsonValue): value is Record<string, JsonValue> { return !!value && typeof value === "object" && !Array.isArray(value); }

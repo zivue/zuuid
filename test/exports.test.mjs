@@ -51,6 +51,11 @@ test("musicbrainz provider subpath exports client and transformers", async () =>
   assert.equal(typeof musicbrainz.transformMusicBrainzArtist, "function");
 });
 
+test("wikimedia provider subpath exports enrichment", async () => {
+  const provider = await import("@zivue/zuuid/providers/wikimedia");
+  assert.equal(typeof provider.enrichFromWikimedia, "function");
+});
+
 test("gamesdb provider subpath exports client and transformers", async () => {
   const gamesdb = await import("../dist/providers/gamesdb/index.js");
 

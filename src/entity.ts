@@ -31,6 +31,16 @@ export type Detail = {
   source?: string;
 };
 
+export type EntityLink = {
+  url: string;
+  relation: string;
+  service?: string;
+  label?: string;
+  language?: string;
+  region?: string;
+  source?: string;
+};
+
 export type MediaAsset = {
   url: string;
   mediaType: string;
@@ -70,6 +80,8 @@ export type ZuuidData = {
   aliases: Alias[];
   descriptions: Description[];
   details: Detail[];
+  /** Optional during the 0.2 migration; constructors always initialize this collection. */
+  links?: EntityLink[];
   media: MediaAsset[];
   relations: EntityRelation[];
   recommendations: RecommendationEdge[];
@@ -147,6 +159,7 @@ export function createZuuidDataFromParts(zuuid: string, category: CategoryInfo, 
     aliases: [],
     descriptions: [],
     details: [],
+    links: [],
     media: [],
     relations: [],
     recommendations: [],
@@ -213,7 +226,6 @@ export function kindForCategory(category: string): EntityKind {
     case "place":
     case "location":
     case "venue":
-    case "place":
     case "restaurant":
     case "route":
     case "city":

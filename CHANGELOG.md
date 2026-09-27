@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.15 - 2026-09-27
+
+- Added first-class `links` to normalized entities for official, social, streaming, event, and reference URLs.
+- Added ordinary YouTube artist links alongside YouTube Music links from MusicBrainz.
+- Added explicit Wikidata, Wikipedia, and Wikimedia Commons enrichment with descriptions, attributed artwork, links, and per-source provenance.
+- Migrated navigable URLs from TMDB, IMDb, Open Library, OpenStreetMap, Ticketmaster, Setlist.fm, GamesDB, Jikan, and podcast transforms into `links` while retaining legacy details.
+- Added artist bylines to MusicBrainz release, release-group, and recording search results without changing their primary titles.
+- Preserved MusicBrainz URL relationships across releases, release groups, recordings, labels, works, and artists, including provider identifiers when URLs expose them.
+- Added MusicBrainz release editions, album tracks, labels, recording appearances, and composition relationships.
+- Fixed MusicBrainz pagination on partial final result pages and normalized invalid limit/offset values.
+- Kept legacy link details temporarily so existing consumers remain compatible during migration.
+
 ## 0.2.14 - 2026-09-27
 
 - Added MusicBrainz artist members and other artist-to-artist relationships with roles and active dates.

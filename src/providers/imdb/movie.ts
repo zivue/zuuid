@@ -5,6 +5,7 @@ import {
   addAlias,
   addDescription,
   addDetail,
+  addLink,
   addMedia,
   addRelation,
   addTag,
@@ -106,7 +107,9 @@ async function transformImdbTitle(source: SourceRecord, fallbackCategory: "movie
   addDetail(data, IMDB_PROVIDER, "content_rating", stringField(jsonLd, "contentRating"));
   addDetail(data, IMDB_PROVIDER, "duration", stringField(jsonLd, "duration"));
   addDetail(data, IMDB_PROVIDER, "schema_type", valueAsString(jsonLd["@type"]));
-  addDetail(data, IMDB_PROVIDER, "url", stringField(payload, "url") ?? imdbTitleUrl(externalId, options.titleBaseUrl));
+  const pageUrl = stringField(payload, "url") ?? imdbTitleUrl(externalId, options.titleBaseUrl);
+  addDetail(data, IMDB_PROVIDER, "url", pageUrl);
+  addLink(data, IMDB_PROVIDER, pageUrl, "reference", { service: "imdb" });
   addDetail(data, IMDB_PROVIDER, "page_status", payload.challenge === true ? "challenge" : undefined);
   addDetail(data, IMDB_PROVIDER, "imdb_type", stringField(suggestion, "q"));
   addDetail(data, IMDB_PROVIDER, "imdb_type_id", stringField(suggestion, "qid"));

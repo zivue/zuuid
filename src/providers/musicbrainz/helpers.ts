@@ -1,6 +1,6 @@
 import type { ZuuidData } from "../../entity.js";
 import type { JsonValue } from "../../types.js";
-import { addAlias, addDescription, addDetail, addRelation, addTag, arrayField, nestedString, objectPayload, stringField, valueAsString } from "../common.js";
+import { addAlias, addDescription, addDetail, addLink, addRelation, addTag, arrayField, nestedString, objectPayload, stringField, valueAsString } from "../common.js";
 import { MUSICBRAINZ_ARTIST_CATEGORY, MUSICBRAINZ_PROVIDER } from "./constants.js";
 
 export function musicBrainzPayload(value: JsonValue): Record<string, JsonValue> {
@@ -37,13 +37,106 @@ export function addMusicBrainzTags(data: ZuuidData, payload: Record<string, Json
   }
 }
 
+export function addMusicBrainzUrlRelations(data: ZuuidData, payload: Record<string, JsonValue>, category: string): void {
+  for (const value of arrayField(payload, "relations")) {
+    const relation = objectPayload(value);
+    if (relation.ended === true || stringField(relation, "target-type") !== "url") continue;
+    const resource = nestedString(relation, ["url", "resource"]);
+    if (!resource) continue;
+    let url: URL;
+    try {
+      url = new URL(resource);
+    } catch {
+      continue;
+    }
+    if (url.protocol !== "http:" && url.protocol !== "https:") continue;
+    const type = stringField(relation, "type") ?? "external link";
+    const service = musicBrainzLinkService(type, url);
+    const linkRelation = musicBrainzLinkRelation(type, service);
+    addLink(data, MUSICBRAINZ_PROVIDER, url.toString(), linkRelation, {
+      ...(service ? { service } : {}),
+      label: type,
+    });
+    const detailKey = service ?? normalizeRelationType(type);
+    addDetail(data, MUSICBRAINZ_PROVIDER, detailKey, url.toString());
+    const externalId = service ? externalIdFromMusicBrainzLink(service, url) : undefined;
+    if (service && externalId && !data.externalIds.some((item) => item.source === service && item.value === externalId)) {
+      data.externalIds.push({ source: service, category, value: externalId });
+    }
+  }
+}
+
+function musicBrainzLinkService(type: string, url: URL): string | undefined {
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (type === "official homepage") return "homepage";
+  if (type === "wikidata" || host === "wikidata.org") return "wikidata";
+  if (type === "discogs" || host === "discogs.com") return "discogs";
+  if (type === "IMDb" || host === "imdb.com") return "imdb";
+  if (type === "allmusic" || host === "allmusic.com") return "allmusic";
+  if (type === "bandsintown" || host === "bandsintown.com") return "bandsintown";
+  if (type === "songkick" || host === "songkick.com") return "songkick";
+  if (type === "setlistfm" || host === "setlist.fm") return "setlistfm";
+  if (type === "soundcloud" || host === "soundcloud.com") return "soundcloud";
+  if (type === "youtube music" || host === "music.youtube.com") return "youtube_music";
+  if (type === "youtube" || host === "youtube.com" || host === "youtu.be") return "youtube";
+  if (host === "open.spotify.com") return "spotify";
+  if (host === "deezer.com") return "deezer";
+  if (host === "music.apple.com" || host === "itunes.apple.com") return "apple_music";
+  if (host === "music.amazon.com") return "amazon_music";
+  if (host === "tidal.com") return "tidal";
+  if (host === "bandcamp.com" || host.endsWith(".bandcamp.com")) return "bandcamp";
+  if (host === "instagram.com") return "instagram";
+  if (host === "twitter.com" || host === "x.com") return "twitter";
+  if (host === "facebook.com") return "facebook";
+  if (host === "bsky.app") return "bluesky";
+  if (host === "threads.net" || host === "threads.com") return "threads";
+  return undefined;
+}
+
+function musicBrainzLinkRelation(type: string, service: string | undefined): string {
+  const normalizedType = type.toLowerCase();
+  if (/purchase|download|mail order/.test(normalizedType)) return "purchase";
+  if (/streaming/.test(normalizedType)) return "streaming";
+  if (["spotify", "apple_music", "amazon_music", "deezer", "soundcloud", "tidal", "youtube_music", "bandcamp"].includes(service ?? "")) return "streaming";
+  if (["bluesky", "facebook", "instagram", "threads", "twitter", "youtube"].includes(service ?? "")) return "social";
+  if (["bandsintown", "setlistfm", "songkick"].includes(service ?? "")) return "events";
+  if (service === "homepage") return "official";
+  return "reference";
+}
+
+function externalIdFromMusicBrainzLink(service: string, url: URL): string | undefined {
+  const path = url.pathname.replace(/^\/+|\/+$/g, "");
+  const patterns: Partial<Record<string, RegExp>> = {
+    allmusic: /(?:^|\/)artist\/([^/]+)$/i,
+    apple_music: /(?:^|\/)artist\/(?:[^/]+\/)?(?:id)?(\d+)$/i,
+    bandsintown: /(?:^|\/)a\/(\d+)$/i,
+    deezer: /(?:^|\/)artist\/(\d+)$/i,
+    discogs: /(?:^|\/)(?:artist|release|master|label)\/(\d+)$/i,
+    imdb: /(?:^|\/)(?:name|title)\/((?:nm|tt)\d+)$/i,
+    songkick: /(?:^|\/)artists\/(\d+)$/i,
+    spotify: /(?:^|\/)(?:artist|album|track)\/([^/]+)$/i,
+    tidal: /(?:^|\/)(?:artist|album|track)\/(\d+)$/i,
+    wikidata: /(?:^|\/)wiki\/(Q\d+)$/i,
+    youtube_music: /(?:^|\/)(?:channel|browse)\/([^/]+)$/i,
+    youtube: /(?:^|\/)(?:channel\/|@)([^/]+)$/i,
+  };
+  if (service === "setlistfm") return path.match(/-([0-9a-f]+)\.html$/i)?.[1];
+  return patterns[service]?.exec(path)?.[1];
+}
+
+function normalizeRelationType(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "external_link";
+}
+
 export function artistCredit(payload: Record<string, JsonValue>): string | undefined {
-  const names = arrayField(payload, "artist-credit").map((item) => {
+  const credits = arrayField(payload, "artist-credit").map((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return undefined;
     const object = item as Record<string, JsonValue>;
-    return stringField(object, "name") ?? nestedString(object, ["artist", "name"]);
-  }).filter((value): value is string => !!value);
-  return names.length ? names.join(", ") : undefined;
+    const name = stringField(object, "name") ?? nestedString(object, ["artist", "name"]);
+    return name ? { name, joinphrase: typeof object.joinphrase === "string" ? object.joinphrase : undefined } : undefined;
+  }).filter((value): value is { name: string; joinphrase: string | undefined } => !!value);
+  if (!credits.length) return undefined;
+  return credits.map((credit, index) => credit.name + (credit.joinphrase ?? (index < credits.length - 1 ? ", " : ""))).join("");
 }
 
 export function addArtistCreditDetail(data: ZuuidData, payload: Record<string, JsonValue>): void {

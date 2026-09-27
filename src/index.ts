@@ -15,6 +15,7 @@ export * from "./providers/setlistfm/index.js";
 export * from "./providers/ticketmaster/index.js";
 export * from "./providers/tmdb/index.js";
 export * from "./providers/wger/index.js";
+export * from "./providers/wikimedia/index.js";
 export * from "./source.js";
 export * from "./types.js";
 export * from "./uuid.js";

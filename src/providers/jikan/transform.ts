@@ -1,6 +1,6 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
-import { addAlias, addDescription, addDetail, addMedia, addRelation, addTag, arrayField, baseDataFromSource, datePrefix, finalizeData, nestedString, normalizeRating, objectPayload, stringField, stripHtml, valueAsString } from "../common.js";
+import { addAlias, addDescription, addDetail, addLink, addMedia, addRelation, addTag, arrayField, baseDataFromSource, datePrefix, finalizeData, nestedString, normalizeRating, objectPayload, stringField, stripHtml, valueAsString } from "../common.js";
 import { JIKAN_ANIME_CATEGORY, JIKAN_CHARACTER_CATEGORY, JIKAN_MAGAZINE_CATEGORY, JIKAN_MANGA_CATEGORY, JIKAN_PERSON_CATEGORY, JIKAN_PRODUCER_CATEGORY, JIKAN_PROVIDER } from "./constants.js";
 
 export async function transformJikan(source: SourceRecord): Promise<ZuuidData> {
@@ -28,6 +28,7 @@ export async function transformJikanTitle(source: SourceRecord, publicCategory =
   addCover(data, payload, "poster");
   const trailer = nestedString(payload, ["trailer", "url"]) ?? (nestedString(payload, ["trailer", "youtube_id"]) ? `https://www.youtube.com/watch?v=${nestedString(payload, ["trailer", "youtube_id"])}` : undefined);
   addMedia(data, JIKAN_PROVIDER, trailer, "trailer", "video", false);
+  addLink(data, JIKAN_PROVIDER, trailer, "trailer", { service: "youtube" });
   for (const key of ["type", "source", "status", "rating", "season", "duration"]) addDetail(data, JIKAN_PROVIDER, key, stringField(payload, key));
   for (const key of ["episodes", "chapters", "volumes", "rank", "popularity", "members", "favorites", "scored_by"]) addDetail(data, JIKAN_PROVIDER, key, valueAsString(payload[key]));
   for (const key of ["genres", "themes", "demographics"]) addNamedTags(data, payload, key);

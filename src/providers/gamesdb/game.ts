@@ -9,6 +9,7 @@ import {
   addAlias,
   addDescription,
   addDetail,
+  addLink,
   addMedia,
   addRelation,
   addTag,
@@ -113,6 +114,7 @@ export async function transformGamesDbGame(
   for (const key of ["players", "coop", "youtube", "os", "processor", "ram", "hdd", "video", "sound", "last_updated", "release_date"]) {
     addDetail(data, GAMESDB_PROVIDER, key, valueAsString(payload[key]));
   }
+  addLink(data, GAMESDB_PROVIDER, youtubeUrl(valueAsString(payload.youtube)), "video", { service: "youtube" });
   for (const media of mediaCandidates(payload, envelope, id, options.imageBaseUrl)) {
     addMedia(data, GAMESDB_PROVIDER, media.url, media.category, "image", media.primary);
   }
@@ -120,6 +122,11 @@ export async function transformGamesDbGame(
   const platformId = valueAsString(payload.platform);
   if (platformId) await addRelation(data, GAMESDB_PROVIDER, "platform", platformId, "released_on", lookupName(envelope, "platforms", payload.platform));
   return finalizeData(data, source);
+}
+
+function youtubeUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  return /^https?:\/\//i.test(value) ? value : `https://www.youtube.com/watch?v=${encodeURIComponent(value)}`;
 }
 
 async function fetchGamesDbGameSearchPayload(provider: GamesDbProvider, input: GamesDbSearchInput): Promise<JsonValue> {

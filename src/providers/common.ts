@@ -1,4 +1,4 @@
-import { createZuuidData, type EntityRelation, type ZuuidData } from "../entity.js";
+import { createZuuidData, type EntityLink, type EntityRelation, type ZuuidData } from "../entity.js";
 import { providerZuuid } from "../identity.js";
 import { attachSourceMetadata, type SourceRecord } from "../source.js";
 import type { JsonValue } from "../types.js";
@@ -61,6 +61,27 @@ export function addDetail(data: ZuuidData, provider: string, key: string, value:
   if (normalized !== undefined) {
     data.details.push({ key, value: normalized, source: provider });
   }
+}
+
+export function addLink(
+  data: ZuuidData,
+  provider: string,
+  url: string | undefined,
+  relation: string,
+  options: Omit<EntityLink, "url" | "relation" | "source"> = {}
+): void {
+  const normalized = url?.trim();
+  if (!normalized) return;
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    return;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return;
+  const links = data.links ?? (data.links = []);
+  if (links.some((link) => link.url === parsed.toString() && link.relation === relation)) return;
+  links.push({ url: parsed.toString(), relation, source: provider, ...options });
 }
 
 export function addTag(data: ZuuidData, value: string | undefined): void {

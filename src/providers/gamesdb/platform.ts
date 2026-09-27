@@ -1,7 +1,7 @@
 import type { ZuuidData } from "../../entity.js";
 import { createSourceRecord, type SourceRecord } from "../../source.js";
 import type { JsonValue } from "../../types.js";
-import { addAlias, addDescription, addDetail, addMedia, addTag, baseDataFromSource, finalizeData, objectPayload, stringField, valueAsString } from "../common.js";
+import { addAlias, addDescription, addDetail, addLink, addMedia, addTag, baseDataFromSource, finalizeData, objectPayload, stringField, valueAsString } from "../common.js";
 import { GAMESDB_PLATFORM_CATEGORY, GAMESDB_PROVIDER } from "./constants.js";
 import type { GamesDbProvider } from "./client.js";
 import type { FetchGamesDbPlatformInput, GamesDbTransformOptions } from "./types.js";
@@ -35,6 +35,8 @@ export async function transformGamesDbPlatform(source: SourceRecord, options: Ga
   addAlias(data, stringField(payload, "alias"), "slug", false, GAMESDB_PROVIDER);
   addDescription(data, GAMESDB_PROVIDER, stringField(payload, "overview") ?? stringField(payload, "description"));
   for (const key of ["manufacturer", "developer", "media", "release_date", "cpu", "memory", "graphics", "sound", "display", "maxcontrollers", "youtube"]) addDetail(data, GAMESDB_PROVIDER, key, valueAsString(payload[key]));
+  const youtube = valueAsString(payload.youtube);
+  addLink(data, GAMESDB_PROVIDER, youtube ? (/^https?:\/\//i.test(youtube) ? youtube : `https://www.youtube.com/watch?v=${encodeURIComponent(youtube)}`) : undefined, "video", { service: "youtube" });
   for (const media of mediaCandidates(payload, envelope, id, options.imageBaseUrl)) addMedia(data, GAMESDB_PROVIDER, media.url, media.category, "image", media.primary);
   addTag(data, "platform");
   addTag(data, "game");

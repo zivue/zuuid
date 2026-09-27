@@ -2,7 +2,7 @@ import { createZuuidData, type SearchResponse, type ZuuidData, type ZuuidSearchR
 import { providerZuuid } from "../../identity.js";
 import { attachSourceMetadata, createSourceRecord, type SourceRecord } from "../../source.js";
 import type { JsonValue } from "../../types.js";
-import { normalizeRating } from "../common.js";
+import { addLink, normalizeRating } from "../common.js";
 import { OPEN_LIBRARY_COVER_BASE_URL, OPEN_LIBRARY_PROVIDER } from "./constants.js";
 import type { OpenLibraryProvider } from "./client.js";
 import type { OpenLibrarySearchInput, OpenLibrarySearchResponse, OpenLibraryTransformOptions } from "./types.js";
@@ -276,6 +276,14 @@ export async function transformOpenLibraryBook(
   addArrayDetail(data, "subject_people", work.subject_people);
   addArrayDetail(data, "subject_times", work.subject_times);
   addStructuredDetail(data, "links", work.links as JsonValue | undefined);
+  for (const link of work.links ?? []) {
+    const url = stringField(link.url);
+    const label = stringField(link.title);
+    addLink(data, OPEN_LIBRARY_PROVIDER, url, /official|homepage/i.test(label ?? "") ? "official" : "reference", {
+      service: "openlibrary_link",
+      ...(label ? { label } : {}),
+    });
+  }
   addStructuredDetail(data, "excerpts", work.excerpts as JsonValue | undefined);
   addStructuredDetail(data, "series", work.series as JsonValue | undefined);
   addStructuredDetail(data, "cover_edition", work.cover_edition as JsonValue | undefined);

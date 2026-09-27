@@ -1,8 +1,8 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
-import { addDetail, addMedia, arrayField, baseDataFromSource, finalizeData, stringField, valueAsString } from "../common.js";
-import { MUSICBRAINZ_PROVIDER, MUSICBRAINZ_RELEASE_GROUP_CATEGORY, MUSICBRAINZ_RELEASE_GROUP_COVER_ART_BASE_URL } from "./constants.js";
-import { addArtistCreditDetail, addArtistCreditRelations, addMusicBrainzDescription, addMusicBrainzTags, musicBrainzId, musicBrainzPayload, requireMusicBrainzTitle } from "./helpers.js";
+import { addDetail, addMedia, addRelation, arrayField, baseDataFromSource, finalizeData, objectPayload, stringField, valueAsString } from "../common.js";
+import { MUSICBRAINZ_PROVIDER, MUSICBRAINZ_RELEASE_CATEGORY, MUSICBRAINZ_RELEASE_GROUP_CATEGORY, MUSICBRAINZ_RELEASE_GROUP_COVER_ART_BASE_URL } from "./constants.js";
+import { addArtistCreditDetail, addArtistCreditRelations, addMusicBrainzDescription, addMusicBrainzTags, addMusicBrainzUrlRelations, musicBrainzId, musicBrainzPayload, requireMusicBrainzTitle } from "./helpers.js";
 
 export type MusicBrainzReleaseGroupTransformOptions = {
   coverArtBaseUrl?: string | null;
@@ -31,7 +31,22 @@ export async function transformMusicBrainzReleaseGroup(
   await addArtistCreditRelations(data, payload);
   addMusicBrainzDescription(data, payload);
   addMusicBrainzTags(data, payload);
+  addMusicBrainzUrlRelations(data, payload, MUSICBRAINZ_RELEASE_GROUP_CATEGORY);
+  await addReleaseRelations(data, payload);
   const baseUrl = options.coverArtBaseUrl === undefined ? MUSICBRAINZ_RELEASE_GROUP_COVER_ART_BASE_URL : options.coverArtBaseUrl;
   if (baseUrl) addMedia(data, MUSICBRAINZ_PROVIDER, `${baseUrl.replace(/\/$/, "")}/${id}/front`, "cover");
   return finalizeData(data, source);
+}
+
+async function addReleaseRelations(data: ZuuidData, payload: Record<string, unknown>): Promise<void> {
+  let order = 0;
+  for (const value of arrayField(payload as never, "releases")) {
+    const release = objectPayload(value);
+    await addRelation(data, MUSICBRAINZ_PROVIDER, MUSICBRAINZ_RELEASE_CATEGORY, stringField(release, "id"), "edition", stringField(release, "title"), {
+      date: stringField(release, "date") ?? null,
+      attribute: [stringField(release, "status"), stringField(release, "country")].filter(Boolean).join(" · ") || null,
+      order,
+    });
+    order += 1;
+  }
 }

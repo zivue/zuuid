@@ -305,6 +305,8 @@ test("transformTmdbMovie maps rich TMDB movie append payloads", async () => {
   const data = await transformTmdbMovie(source);
 
   assert.equal(data.externalIds.some((id) => id.source === "wikidata" && id.value === "Q190050"), true);
+  assert.equal(data.links?.some((link) => link.service === "imdb" && link.relation === "reference"), true);
+  assert.equal(data.links?.some((link) => link.service === "facebook" && link.relation === "social"), true);
   assert.equal(data.aliases.some((alias) => alias.value === "El club de la lucha"), true);
   assert.equal(data.descriptions.some((description) => description.language === "es"), true);
   assert.equal(data.tags.includes("based on novel or book"), true);

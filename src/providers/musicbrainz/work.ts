@@ -3,7 +3,7 @@ import type { SourceRecord } from "../../source.js";
 import { addDetail, addRelation, addTag, arrayField, baseDataFromSource, finalizeData, stringField } from "../common.js";
 import type { JsonValue } from "../../types.js";
 import { MUSICBRAINZ_ARTIST_CATEGORY, MUSICBRAINZ_PROVIDER, MUSICBRAINZ_WORK_CATEGORY } from "./constants.js";
-import { addMusicBrainzAliases, addMusicBrainzDescription, addMusicBrainzTags, musicBrainzId, musicBrainzPayload, requireMusicBrainzTitle } from "./helpers.js";
+import { addMusicBrainzAliases, addMusicBrainzDescription, addMusicBrainzTags, addMusicBrainzUrlRelations, musicBrainzId, musicBrainzPayload, requireMusicBrainzTitle } from "./helpers.js";
 
 export async function transformMusicBrainzWork(source: SourceRecord): Promise<ZuuidData> {
   if (source.source.provider !== MUSICBRAINZ_PROVIDER || source.source.category !== MUSICBRAINZ_WORK_CATEGORY) {
@@ -26,6 +26,7 @@ export async function transformMusicBrainzWork(source: SourceRecord): Promise<Zu
   for (const iswc of arrayField(payload, "iswcs")) if (typeof iswc === "string") data.externalIds.push({ source: "iswc", category: MUSICBRAINZ_WORK_CATEGORY, value: iswc });
   await addArtistRelations(data, payload);
   addMusicBrainzTags(data, payload);
+  addMusicBrainzUrlRelations(data, payload, MUSICBRAINZ_WORK_CATEGORY);
   addTag(data, "composition");
   return finalizeData(data, source);
 }

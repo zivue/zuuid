@@ -87,6 +87,7 @@ console.log(movie);
 //   aliases,
 //   descriptions,
 //   details,
+//   links,
 //   media,
 //   relations,
 //   recommendations,
@@ -99,6 +100,8 @@ console.log(movie);
 Search results, relations, and recommendations share the same lightweight list item fields: `id`, `zuuid`, `category`, `title`, `date`, `cover`, `rating`, `weight`, `relationType`, `attribute`, and `order`.
 
 Ratings are normalized to a `0-5` scale when the provider exposes a compatible numeric score. The original provider score is preserved in details as `provider_rating` for providers whose native scale differs.
+
+Navigable URLs are normalized into the top-level `links` collection with a semantic relation such as `official`, `social`, `streaming`, `events`, or `reference`. During the 0.2 migration, providers also retain their legacy URL details so older consumers and stored snapshots continue to work.
 
 ## Supported Providers
 
@@ -244,6 +247,8 @@ const release = await musicbrainz.fetchRelease({ id: "f5093c06-23e3-404f-aeaa-40
 const releaseGroups = await musicbrainz.searchReleaseGroups({ query: "Kind of Blue" });
 const artist = await musicbrainz.fetchArtist({ id: "561d854a-6a28-4aa7-8c99-323e6ce46c2a" });
 ```
+
+MusicBrainz search results expose the credited artist string as `attribute`, preserving credits such as `Various Artists` and join phrases such as `Artist A & Artist B`. Full entities retain each credited artist as a separate relation. Release details also include their release group, labels, and recordings; release groups include editions; and recordings link back to releases and musical works. URL relationships are normalized into `links` for every MusicBrainz entity type.
 
 The category-first client exposes MusicBrainz under `listen.musicbrainz` and `people.musicbrainz`:
 
@@ -456,6 +461,7 @@ type ZuuidData = {
   aliases: Alias[];
   descriptions: Description[];
   details: Detail[];
+  links: EntityLink[];
   media: MediaAsset[];
   relations: EntityRelation[];
   recommendations: RecommendationEdge[];
@@ -466,6 +472,20 @@ type ZuuidData = {
 ```
 
 `Detail.value` can be any JSON value, so details can hold strings, numbers, booleans, arrays, or structured objects without duplicating `value` and `data` fields.
+
+`links` contains navigable entity URLs independently from provider facts in `details`. Each link records its semantic `relation` (for example `official`, `social`, `streaming`, `events`, or `reference`), optional service name, and source. Provider identifiers remain in `externalIds` even when a corresponding link exists.
+
+Linked Wikidata entities can be enriched explicitly without hiding extra requests inside another provider client:
+
+```ts
+import { enrichFromWikimedia } from "@zivue/zuuid/providers/wikimedia";
+
+const enriched = await enrichFromWikimedia(item, {
+  userAgent: "my-app/1.0 (+https://example.com)",
+});
+```
+
+The helper adds English Wikidata and Wikipedia descriptions, Wikimedia Commons artwork with attribution and licence metadata, entity links, and separate provenance entries. It remains stateless; callers such as `zuuid-api` decide when to enrich and how long to persist the result.
 
 ## ZUUIDs
 

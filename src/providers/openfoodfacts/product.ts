@@ -1,6 +1,6 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
-import { addAlias, addDetail, addMedia, addTag, arrayField, baseDataFromSource, finalizeData, objectPayload, stringField, valueAsString } from "../common.js";
+import { addAlias, addDetail, addLink, addMedia, addTag, arrayField, baseDataFromSource, finalizeData, objectPayload, stringField, valueAsString } from "../common.js";
 import type { JsonValue } from "../../types.js";
 import { OPENFOODFACTS_PRODUCT_CATEGORY, OPENFOODFACTS_PROVIDER } from "./constants.js";
 
@@ -20,6 +20,7 @@ export async function transformOpenFoodFactsProduct(source: SourceRecord): Promi
   addStringListDetail(data, payload, "labels_tags", "labels");
   addStringListDetail(data, payload, "ingredients_analysis_tags", "ingredient_analysis");
   addDetail(data, OPENFOODFACTS_PROVIDER, "barcode", id);
+  addLink(data, OPENFOODFACTS_PROVIDER, `https://world.openfoodfacts.org/product/${encodeURIComponent(id)}`, "reference", { service: "openfoodfacts" });
   const nutriments = payload.nutriments && typeof payload.nutriments === "object" && !Array.isArray(payload.nutriments) ? payload.nutriments as Record<string, JsonValue> : {};
   for (const [jsonKey, detailKey] of [["energy-kcal_100g", "calories_100g"], ["fat_100g", "fat_100g"], ["proteins_100g", "protein_100g"], ["carbohydrates_100g", "carbs_100g"], ["sugars_100g", "sugar_100g"], ["fiber_100g", "fiber_100g"], ["salt_100g", "salt_100g"], ["sodium_100g", "sodium_100g"], ["energy-kj_100g", "energy_kj_100g"], ["saturated-fat_100g", "saturated_fat_100g"], ["nutriscore_score", "nutriscore_score"], ["nova-group", "nova_group"]] as const) addDetail(data, OPENFOODFACTS_PROVIDER, detailKey, valueAsString(nutriments[jsonKey]));
   addTag(data, data.category === OPENFOODFACTS_PRODUCT_CATEGORY ? "food" : data.category);

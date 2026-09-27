@@ -2,6 +2,7 @@ import { createZuuidData, type SearchResponse, type ZuuidData, type ZuuidSearchR
 import { providerZuuid } from "../../identity.js";
 import { attachSourceMetadata, createSourceRecord, type SourceRecord } from "../../source.js";
 import type { JsonValue } from "../../types.js";
+import { addLink } from "../common.js";
 import { OPEN_LIBRARY_COVER_BASE_URL, OPEN_LIBRARY_PROVIDER } from "./constants.js";
 import type { OpenLibraryProvider } from "./client.js";
 import type { OpenLibrarySearchInput, OpenLibrarySearchResponse, OpenLibraryTransformOptions } from "./types.js";
@@ -162,6 +163,15 @@ export async function transformOpenLibraryAuthor(
   addDetail(data, "death_date", author.death_date);
   addDetail(data, "personal_name", author.personal_name);
   addDetail(data, "wikipedia", author.wikipedia);
+  addLink(data, OPEN_LIBRARY_PROVIDER, author.wikipedia, "reference", { service: "wikipedia" });
+  for (const link of author.links ?? []) {
+    const url = stringField(link.url);
+    const label = stringField(link.title);
+    addLink(data, OPEN_LIBRARY_PROVIDER, url, /official|homepage/i.test(label ?? "") ? "official" : "reference", {
+      service: "openlibrary_link",
+      ...(label ? { label } : {}),
+    });
+  }
   addStructuredDetail(data, "links", author.links as JsonValue | undefined);
   addStructuredDetail(data, "remote_ids", author.remote_ids as JsonValue | undefined);
   if (typeof payload.works?.size === "number") {

@@ -1,6 +1,6 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
-import { addAlias, addDescription, addDetail, addMedia, addRelation, addTag, arrayField, baseDataFromSource, datePrefix, finalizeData, nestedString, objectPayload, stringField, valueAsString } from "../common.js";
+import { addAlias, addDescription, addDetail, addLink, addMedia, addRelation, addTag, arrayField, baseDataFromSource, datePrefix, finalizeData, nestedString, objectPayload, stringField, valueAsString } from "../common.js";
 import { TICKETMASTER_ATTRACTION_CATEGORY, TICKETMASTER_EVENT_CATEGORY, TICKETMASTER_PROVIDER, TICKETMASTER_VENUE_CATEGORY } from "./constants.js";
 
 export async function transformTicketmaster(source: SourceRecord): Promise<ZuuidData> {
@@ -17,6 +17,7 @@ export async function transformTicketmasterEvent(source: SourceRecord): Promise<
   data.primaryDate = datePrefix(nestedString(payload, ["dates", "start", "localDate"]));
   addDescription(data, TICKETMASTER_PROVIDER, stringField(payload, "info") ?? stringField(payload, "pleaseNote") ?? stringField(payload, "please_note"));
   for (const [key, value] of [["type", stringField(payload, "type")], ["locale", stringField(payload, "locale")], ["source_url", stringField(payload, "url")], ["status", nestedString(payload, ["dates", "status", "code"])], ["event_date", nestedString(payload, ["dates", "start", "localDate"])], ["event_time", nestedString(payload, ["dates", "start", "localTime"])], ["timezone", nestedString(payload, ["dates", "timezone"])]] as const) addDetail(data, TICKETMASTER_PROVIDER, key, value);
+  addLink(data, TICKETMASTER_PROVIDER, stringField(payload, "url"), "tickets", { service: "ticketmaster" });
   const venue = embeddedItem(payload, "venues");
   for (const [key, value] of [
     ["venue", stringField(venue, "name")],
@@ -60,6 +61,7 @@ export async function transformTicketmasterAttraction(source: SourceRecord): Pro
   for (const alias of arrayField(payload, "aliases")) if (typeof alias === "string") addAlias(data, alias, "alias", false, TICKETMASTER_PROVIDER);
   addDetail(data, TICKETMASTER_PROVIDER, "type", stringField(payload, "type"));
   addDetail(data, TICKETMASTER_PROVIDER, "source_url", stringField(payload, "url"));
+  addLink(data, TICKETMASTER_PROVIDER, stringField(payload, "url"), "events", { service: "ticketmaster" });
   addDetail(data, TICKETMASTER_PROVIDER, "upcoming_events", valueAsString((payload.upcomingEvents as Record<string, never> | undefined)?._total));
   addImages(data, payload); addClassifications(data, payload); addTag(data, "attraction");
   return finalizeData(data, source);
@@ -69,6 +71,7 @@ export async function transformTicketmasterVenue(source: SourceRecord): Promise<
   const payload = objectPayload(source.payload);
   const data = await baseTicketmaster(source, TICKETMASTER_VENUE_CATEGORY);
   for (const [key, value] of [["type", stringField(payload, "type")], ["timezone", stringField(payload, "timezone")], ["source_url", stringField(payload, "url")], ["postal_code", stringField(payload, "postalCode")], ["city", nestedString(payload, ["city", "name"])], ["state", nestedString(payload, ["state", "name"])], ["country", nestedString(payload, ["country", "name"])], ["latitude", nestedString(payload, ["location", "latitude"])], ["longitude", nestedString(payload, ["location", "longitude"])], ["parking", nestedString(payload, ["parkingDetail"])], ["accessibility", nestedString(payload, ["accessibleSeatingDetail"])]] as const) addDetail(data, TICKETMASTER_PROVIDER, key, value);
+  addLink(data, TICKETMASTER_PROVIDER, stringField(payload, "url"), "events", { service: "ticketmaster" });
   addImages(data, payload); addTag(data, "venue");
   return finalizeData(data, source);
 }
