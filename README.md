@@ -670,6 +670,41 @@ npm test
 npm pack --dry-run
 ```
 
+## Publishing
+
+Publishing a stable GitHub release triggers `.github/workflows/publish.yml` to
+build, test, and publish the tagged package to npm. The tag must be `v` followed
+by the version in both `package.json` and `package-lock.json`. Prereleases are
+not published by this workflow.
+
+The workflow uses [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/)
+with GitHub Actions OIDC; no `NPM_TOKEN` secret is needed. A package owner must
+configure this once in the npm package's **Settings → Trusted publishing**:
+
+- Publisher: **GitHub Actions**
+- Organization or user: **zivue**
+- Repository: **zuuid**
+- Workflow filename: **publish.yml**
+- Environment: leave empty
+- Allowed actions: enable direct publishing with **npm publish**
+
+Complete the first publish within two days of creating the trusted publisher;
+npm expires configurations that have not successfully published within that window.
+
+To publish an existing release such as `v0.2.16`, run the workflow manually
+from the default branch:
+
+```sh
+gh workflow run publish.yml --repo zivue/zuuid --ref main --field tag=v0.2.16
+```
+
+Add `--field dry_run=true` to validate the workflow without publishing.
+
+For future releases, update both package versions and the changelog, commit and
+push the changes, then publish a GitHub release with the matching tag. Ordinary
+commits do not publish a package, and npm versions cannot be overwritten. The
+API dependency update and application deployment remain separate steps.
+
 ## Package Boundary
 
 This package intentionally does not include storage, caching, object-store metadata, record versions, review state, index state, or backend flags. Those concerns should live in the consuming application or service.
