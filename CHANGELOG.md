@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.16 - 2026-10-12
+
+- Standardized event titles as `Band@Venue, City` when venue data is available, preserving original Ticketmaster names as aliases.
+- Removed redundant event locale, type, and date details; normalized confirmed event times to `HH:mm` while retaining timezone, status, and source links.
+- Preserved Ticketmaster notices separately from descriptions, filtered placeholder classifications, and selected the largest image as cover while keeping image dimensions.
+- Removed duplicate Setlist.fm song details and attached MusicBrainz artist identifiers to artist relations instead of events.
+
 ## 0.2.15 - 2026-09-27
 
 - Added first-class `links` to normalized entities for official, social, streaming, event, and reference URLs.

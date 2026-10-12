@@ -579,8 +579,82 @@ test("transformComicVine, transformTicketmaster, and transformSetlistFm map link
   });
   const setlistData = await transformSetlistFm(setlist);
   assert.equal(setlistData.kind, "event");
+  assert.equal(setlistData.primaryTitle, "Zivue Band@Forum, Oslo");
   assert.equal(setlistData.primaryDate, "2026-05-14");
   assert.equal(setlistData.details.some((detail) => detail.key === "song_count" && detail.value === "1"), true);
+  assert.equal(setlistData.details.some((detail) => ["event_date", "songs"].includes(detail.key)), false);
+  assert.equal(setlistData.descriptions[0].value, "1. Opening");
+  assert.equal(setlistData.externalIds.some((id) => id.source === "musicbrainz"), false);
+  assert.deepEqual(setlistData.relations.find((relation) => relation.category === "artist").data.externalIds, [
+    { source: "musicbrainz", category: "artist", value: "a1" }
+  ]);
+});
+
+test("Ticketmaster events normalize titles and details while preserving useful information", async () => {
+  const source = await createSourceRecord({
+    source: { provider: "ticketmaster", category: "event", externalId: "e2" },
+    payload: {
+      id: "e2", name: "Zivue Band: Summer Tour", type: "event", locale: "en-us",
+      info: "An evening of live music.", pleaseNote: "Doors open at 18:00.", url: "https://events.test/e2",
+      dates: { start: { localDate: "2026-06-01", localTime: "19:30:00" }, timezone: "Europe/Oslo", status: { code: "rescheduled" } },
+      _embedded: { venues: [{ id: "v1", name: "Forum", city: { name: "Oslo" } }], attractions: [{ id: "a1", name: "Zivue Band" }] },
+      classifications: [{ segment: { name: "Music" }, genre: { name: "Jazz" }, subGenre: { name: " Undefined " }, type: { name: "Unknown" }, subType: { name: "N/A" } }],
+      images: [
+        { url: "https://img.test/small.jpg", width: 100, height: 60 },
+        { url: "https://img.test/large.jpg", width: 1200, height: 800 },
+        { url: "https://img.test/large.jpg", width: 1200, height: 800 },
+        { url: "https://img.test/unknown.jpg" }
+      ]
+    }, observedAt
+  });
+  const data = await transformTicketmaster(source);
+  const details = Object.fromEntries(data.details.map(({ key, value }) => [key, value]));
+  assert.equal(data.primaryTitle, "Zivue Band@Forum, Oslo");
+  assert.equal(data.aliases.some((alias) => alias.value === "Zivue Band: Summer Tour" && !alias.isPrimary), true);
+  assert.equal(data.primaryDate, "2026-06-01");
+  assert.deepEqual(details, {
+    notice: "Doors open at 18:00.", source_url: "https://events.test/e2", status: "rescheduled", event_time: "19:30", timezone: "Europe/Oslo", venue: "Forum", city: "Oslo"
+  });
+  assert.equal(data.descriptions[0].value, "An evening of live music.");
+  assert.deepEqual(data.tags, ["music", "jazz"]);
+  assert.equal(data.cover, "https://img.test/large.jpg");
+  assert.equal(data.media.length, 3);
+  assert.equal(data.media.filter((image) => image.isPrimary).length, 1);
+  assert.equal(data.media[1].width, 1200);
+  assert.equal(data.media[1].height, 800);
+  assert.equal(data.relations.length, 2);
+});
+
+test("Ticketmaster event times omit invalid and unconfirmed values without inventing midnight", async () => {
+  for (const [start, expected] of [
+    [{ localTime: "09:05:42" }, "09:05"],
+    [{ localTime: "23:59" }, "23:59"],
+    [{ localTime: "00:00:00" }, "00:00"],
+    [{ localTime: "24:00:00" }, undefined],
+    [{ localTime: "19:60:00" }, undefined],
+    [{ localTime: "19:30:99" }, undefined],
+    [{ localTime: "19:30:00", timeTBA: true }, undefined],
+    [{ localTime: "00:00:00", noSpecificTime: true }, undefined],
+    [{}, undefined]
+  ]) {
+    const source = await createSourceRecord({
+      source: { provider: "ticketmaster", category: "event", externalId: "time" },
+      payload: { id: "time", name: "Festival", dates: { start }, please_note: "Bring ID." }, observedAt
+    });
+    const data = await transformTicketmaster(source);
+    assert.equal(data.details.find((detail) => detail.key === "event_time")?.value, expected);
+    assert.equal(data.primaryTitle, "Festival");
+    assert.equal(data.details.find((detail) => detail.key === "notice")?.value, "Bring ID.");
+  }
+});
+
+test("Ticketmaster titles fall back to the event name when performers are absent", async () => {
+  const source = await createSourceRecord({
+    source: { provider: "ticketmaster", category: "event", externalId: "festival" },
+    payload: { id: "festival", name: "Jazz Festival", _embedded: { venues: [{ id: "v1", name: "Forum", city: { name: "Oslo" } }] } }, observedAt
+  });
+  const data = await transformTicketmaster(source);
+  assert.equal(data.primaryTitle, "Jazz Festival@Forum, Oslo");
 });
 
 test("additional requested provider categories transform", async () => {

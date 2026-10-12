@@ -18,27 +18,25 @@ export async function transformSetlistFmSetlist(source: SourceRecord): Promise<Z
   const artist = nestedString(payload, ["artist", "name"]) ?? "Unknown Artist";
   const venue = nestedString(payload, ["venue", "name"]) ?? "Unknown Venue";
   const city = nestedString(payload, ["venue", "city", "name"]) ?? "Unknown City";
-  const country = nestedString(payload, ["venue", "city", "country", "code"]) ?? "XX";
   const primaryDate = parseSetlistDate(stringField(payload, "eventDate"));
-  const title = `${artist} @ ${venue}, ${city} (${country}) - ${primaryDate ?? stringField(payload, "eventDate") ?? ""}`;
+  const title = `${artist}@${venue}, ${city}`;
   const data = await baseDataFromSource(source, SETLISTFM_PROVIDER, SETLISTFM_SETLIST_CATEGORY, "event", id, title);
   data.primaryDate = primaryDate;
   addAlias(data, title, "title", true, SETLISTFM_PROVIDER, "en");
-  const { lines, songs, songCount, encoreCount } = songsFromPayload(payload);
+  const { lines, songCount, encoreCount } = songsFromPayload(payload);
   addDescription(data, SETLISTFM_PROVIDER, lines.join("\n") || undefined, "en");
   addDetail(data, SETLISTFM_PROVIDER, "tour", nestedString(payload, ["tour", "name"]));
   addDetail(data, SETLISTFM_PROVIDER, "song_count", String(songCount));
   addDetail(data, SETLISTFM_PROVIDER, "encore_count", String(encoreCount));
-  addDetail(data, SETLISTFM_PROVIDER, "event_date", primaryDate);
   addDetail(data, SETLISTFM_PROVIDER, "source_url", stringField(payload, "url"));
   addLink(data, SETLISTFM_PROVIDER, stringField(payload, "url"), "reference", { service: "setlistfm" });
-  addDetail(data, SETLISTFM_PROVIDER, "songs", songs.length ? songs.join(", ") : undefined);
   addDetail(data, SETLISTFM_PROVIDER, "info", stringField(payload, "info"));
-  await addRelation(data, SETLISTFM_PROVIDER, SETLISTFM_ARTIST_CATEGORY, nestedString(payload, ["artist", "mbid"]), "artist", artist);
+  const mbid = nestedString(payload, ["artist", "mbid"]);
+  await addRelation(data, SETLISTFM_PROVIDER, SETLISTFM_ARTIST_CATEGORY, mbid, "artist", artist, {
+    ...(mbid ? { data: { externalIds: [{ source: "musicbrainz", category: "artist", value: mbid }] } } : {})
+  });
   await addRelation(data, SETLISTFM_PROVIDER, SETLISTFM_VENUE_CATEGORY, nestedString(payload, ["venue", "id"]), "venue", venue);
   addTag(data, "concert"); addTag(data, "live"); addTag(data, "setlist"); addTag(data, nestedString(payload, ["tour", "name"]));
-  const mbid = nestedString(payload, ["artist", "mbid"]);
-  if (mbid) data.externalIds.push({ source: "musicbrainz", category: "artist", value: mbid });
   return finalizeData(data, source);
 }
 
@@ -83,8 +81,8 @@ function parseSetlistDate(value: string | undefined): string | undefined {
   return match ? `${match[3]}-${match[2]}-${match[1]}` : datePrefix(value);
 }
 
-function songsFromPayload(payload: Record<string, unknown>): { lines: string[]; songs: string[]; songCount: number; encoreCount: number } {
-  const lines: string[] = []; const songs: string[] = []; let songCount = 0; let encoreCount = 0;
+function songsFromPayload(payload: Record<string, unknown>): { lines: string[]; songCount: number; encoreCount: number } {
+  const lines: string[] = []; let songCount = 0; let encoreCount = 0;
   const sets = payload.sets && typeof payload.sets === "object" && !Array.isArray(payload.sets) ? arrayField(payload.sets as never, "set") : [];
   for (const set of sets) {
     if (set && typeof set === "object" && !Array.isArray(set) && typeof (set as Record<string, never>).encore === "number" && (set as Record<string, number>).encore > 0) encoreCount += 1;
@@ -92,11 +90,11 @@ function songsFromPayload(payload: Record<string, unknown>): { lines: string[]; 
     for (const song of arrayField(set as never, "song")) {
       if (!song || typeof song !== "object" || Array.isArray(song)) continue;
       const name = stringField(song as never, "name"); if (!name) continue;
-      songCount += 1; songs.push(name);
+      songCount += 1;
       lines.push(`${songCount}. ${name}${(song as Record<string, boolean>).tape ? " [tape]" : ""}${stringField(song as never, "info") ? ` (${stringField(song as never, "info")})` : ""}`);
     }
   }
-  return { lines, songs, songCount, encoreCount };
+  return { lines, songCount, encoreCount };
 }
 
 function nestedNumber(payload: Record<string, unknown>, path: string[]): string | undefined {

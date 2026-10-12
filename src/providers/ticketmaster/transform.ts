@@ -1,6 +1,6 @@
 import type { ZuuidData } from "../../entity.js";
 import type { SourceRecord } from "../../source.js";
-import { addAlias, addDescription, addDetail, addLink, addMedia, addRelation, addTag, arrayField, baseDataFromSource, datePrefix, finalizeData, nestedString, objectPayload, stringField, valueAsString } from "../common.js";
+import { addAlias, addDescription, addDetail, addLink, addMedia, addRelation, addTag, arrayField, baseDataFromSource, datePrefix, finalizeData, nestedString, numberField, objectField, objectPayload, stringField, valueAsString } from "../common.js";
 import { TICKETMASTER_ATTRACTION_CATEGORY, TICKETMASTER_EVENT_CATEGORY, TICKETMASTER_PROVIDER, TICKETMASTER_VENUE_CATEGORY } from "./constants.js";
 
 export async function transformTicketmaster(source: SourceRecord): Promise<ZuuidData> {
@@ -14,20 +14,32 @@ export async function transformTicketmaster(source: SourceRecord): Promise<Zuuid
 export async function transformTicketmasterEvent(source: SourceRecord): Promise<ZuuidData> {
   const payload = objectPayload(source.payload);
   const data = await baseTicketmaster(source, "event");
+  const embedded = objectField(payload, "_embedded");
+  const venue = embedded ? arrayField(embedded, "venues").map(objectPayload).find((value) => stringField(value, "name")) : undefined;
+  if (venue) {
+    const artists = embedded ? arrayField(embedded, "attractions").map(objectPayload).map((value) => stringField(value, "name")?.trim()).filter((name): name is string => !!name) : [];
+    const city = nestedString(venue, ["city", "name"]);
+    const title = `${[...new Set(artists)].join(" & ") || data.primaryTitle}@${stringField(venue, "name")?.trim()}${city ? `, ${city.trim()}` : ""}`;
+    if (title !== data.primaryTitle) addAlias(data, data.primaryTitle, "title", false, TICKETMASTER_PROVIDER);
+    data.primaryTitle = title;
+  }
   data.primaryDate = datePrefix(nestedString(payload, ["dates", "start", "localDate"]));
-  addDescription(data, TICKETMASTER_PROVIDER, stringField(payload, "info") ?? stringField(payload, "pleaseNote") ?? stringField(payload, "please_note"));
-  for (const [key, value] of [["type", stringField(payload, "type")], ["locale", stringField(payload, "locale")], ["source_url", stringField(payload, "url")], ["status", nestedString(payload, ["dates", "status", "code"])], ["event_date", nestedString(payload, ["dates", "start", "localDate"])], ["event_time", nestedString(payload, ["dates", "start", "localTime"])], ["timezone", nestedString(payload, ["dates", "timezone"])]] as const) addDetail(data, TICKETMASTER_PROVIDER, key, value);
+  addDescription(data, TICKETMASTER_PROVIDER, stringField(payload, "info"));
+  addDetail(data, TICKETMASTER_PROVIDER, "notice", stringField(payload, "pleaseNote") ?? stringField(payload, "please_note"));
+  const start = objectField(objectField(payload, "dates") ?? {}, "start");
+  const time = start?.timeTBA === true || start?.noSpecificTime === true ? undefined : eventTime(nestedString(payload, ["dates", "start", "localTime"]));
+  for (const [key, value] of [["source_url", stringField(payload, "url")], ["status", nestedString(payload, ["dates", "status", "code"])], ["event_time", time], ["timezone", nestedString(payload, ["dates", "timezone"])]] as const) addDetail(data, TICKETMASTER_PROVIDER, key, value);
   addLink(data, TICKETMASTER_PROVIDER, stringField(payload, "url"), "tickets", { service: "ticketmaster" });
-  const venue = embeddedItem(payload, "venues");
+  const location = embeddedItem(payload, "venues");
   for (const [key, value] of [
-    ["venue", stringField(venue, "name")],
-    ["address", nestedString(venue, ["address", "line1"])],
-    ["postal_code", stringField(venue, "postalCode")],
-    ["city", nestedString(venue, ["city", "name"])],
-    ["state", nestedString(venue, ["state", "name"])],
-    ["country", nestedString(venue, ["country", "name"])],
-    ["latitude", nestedString(venue, ["location", "latitude"])],
-    ["longitude", nestedString(venue, ["location", "longitude"])],
+    ["venue", stringField(location, "name")],
+    ["address", nestedString(location, ["address", "line1"])],
+    ["postal_code", stringField(location, "postalCode")],
+    ["city", nestedString(location, ["city", "name"])],
+    ["state", nestedString(location, ["state", "name"])],
+    ["country", nestedString(location, ["country", "name"])],
+    ["latitude", nestedString(location, ["location", "latitude"])],
+    ["longitude", nestedString(location, ["location", "longitude"])],
   ] as const) addDetail(data, TICKETMASTER_PROVIDER, key, value);
   const price = priceSummary(payload);
   addDetail(data, TICKETMASTER_PROVIDER, "price", price);
@@ -86,20 +98,38 @@ async function baseTicketmaster(source: SourceRecord, publicCategory: string): P
 }
 
 function addImages(data: ZuuidData, payload: Record<string, unknown>): void {
-  let index = 0;
+  const images: { url: string; width?: number; height?: number }[] = [];
   for (const value of arrayField(payload as never, "images")) {
     if (value && typeof value === "object" && !Array.isArray(value)) {
-      addMedia(data, TICKETMASTER_PROVIDER, stringField(value as never, "url"), "image", "image", index === 0);
-      index += 1;
+      const image = objectPayload(value);
+      const url = stringField(image, "url")?.trim();
+      if (!url || images.some((item) => item.url === url)) continue;
+      const width = numberField(image, "width");
+      const height = numberField(image, "height");
+      images.push({ url, ...(width && width > 0 ? { width } : {}), ...(height && height > 0 ? { height } : {}) });
     }
+  }
+  // Prefer the largest known image; retain provider order when sizes tie or are unknown.
+  const primary = images.reduce<(typeof images)[number] | undefined>((best, image) => !best || (image.width ?? 0) * (image.height ?? 0) > (best.width ?? 0) * (best.height ?? 0) ? image : best, undefined);
+  for (const image of images) {
+    addMedia(data, TICKETMASTER_PROVIDER, image.url, "image", "image", image === primary);
+    Object.assign(data.media[data.media.length - 1], image);
   }
 }
 
 function addClassifications(data: ZuuidData, payload: Record<string, unknown>): void {
   for (const classification of arrayField(payload as never, "classifications")) {
     if (!classification || typeof classification !== "object" || Array.isArray(classification)) continue;
-    for (const key of ["segment", "genre", "subGenre", "type", "subType"]) addTag(data, nestedString(classification as never, [key, "name"]));
+    for (const key of ["segment", "genre", "subGenre", "type", "subType"]) {
+      const name = nestedString(classification as never, [key, "name"]);
+      if (name && !/^(undefined|unknown|n\/a|not applicable)$/i.test(name.trim())) addTag(data, name);
+    }
   }
+}
+
+function eventTime(value: string | undefined): string | undefined {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/.exec(value?.trim() ?? "");
+  return match ? `${match[1]}:${match[2]}` : undefined;
 }
 
 async function addEmbeddedRelations(data: ZuuidData, payload: Record<string, unknown>, key: string, category: string): Promise<void> {
