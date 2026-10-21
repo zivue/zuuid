@@ -138,7 +138,7 @@ async function addEmbeddedRelations(data: ZuuidData, payload: Record<string, unk
   let index = 0;
   for (const value of arrayField(embedded as never, key)) {
     if (value && typeof value === "object" && !Array.isArray(value)) {
-      await addRelation(data, TICKETMASTER_PROVIDER, category, stringField(value as never, "id"), category, stringField(value as never, "name"), { order: index });
+      await addRelation(data, TICKETMASTER_PROVIDER, category, stringField(value as never, "id"), category === TICKETMASTER_ATTRACTION_CATEGORY ? "performed_by" : category, stringField(value as never, "name"), { order: index, ...(category === TICKETMASTER_ATTRACTION_CATEGORY ? { data: { originalRelationType: "attraction" } } : {}) });
       index += 1;
     }
   }

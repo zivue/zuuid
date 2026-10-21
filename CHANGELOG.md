@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.17
+
+- Normalize Ticketmaster event attraction connections to `performed_by`, preserving provider identity and the original relationship in source metadata.
+
 ## 0.2.16 - 2026-10-12
 
 - Standardized event titles as `Band@Venue, City` when venue data is available, preserving original Ticketmaster names as aliases.

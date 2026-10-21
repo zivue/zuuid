@@ -625,6 +625,15 @@ test("Ticketmaster events normalize titles and details while preserving useful i
   assert.equal(data.relations.length, 2);
 });
 
+test("Ticketmaster attractions use canonical performer links without changing provider identity", async () => {
+  const source = await createSourceRecord({ source: { provider: "ticketmaster", category: "event", externalId: "canonical-test" }, payload: { id: "canonical-test", name: "Concert", _embedded: { attractions: [{ id: "a1", name: "Stevie Wonder" }] } } });
+  const data = await transformTicketmaster(source);
+  const relation = data.relations.find(r => r.title === "Stevie Wonder");
+  assert.equal(relation.relationType, "performed_by");
+  assert.equal(relation.category, "attraction");
+  assert.equal(relation.data.originalRelationType, "attraction");
+});
+
 test("Ticketmaster event times omit invalid and unconfirmed values without inventing midnight", async () => {
   for (const [start, expected] of [
     [{ localTime: "09:05:42" }, "09:05"],
