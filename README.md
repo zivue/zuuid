@@ -1,3 +1,8 @@
+> [!IMPORTANT]
+> This repository was retired on 2026-10-24. Active development has moved to a private repository.
+> Existing published npm versions, historical releases, source tags, and license notices remain available.
+> Automated publishing from this repository is disabled.
+
 # @zivue/zuuid
 
 Search, fetch, and normalize media metadata from external providers into a shared Zuuid data shape.
